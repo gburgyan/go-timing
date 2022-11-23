@@ -2,6 +2,7 @@ package timing
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -32,4 +33,48 @@ func TestContextWithTiming(t *testing.T) {
 	testLocation.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "test - 100ms calls: 2\n", timing.String())
+}
+
+func TestContextWithSubThreads(t *testing.T) {
+	ctx := ContextWithTiming(context.Background())
+
+	outsideComplete := Start(ctx, "test")
+
+	// Prentend this is a new Goroutine
+	threadCtx := BeginSubThread(ctx, "thread")
+	insideComplete := Start(threadCtx, "inside")
+	insideComplete()
+	// End of Goroutine
+
+	outsideComplete()
+
+	timing := GetTiming(ctx)
+	timing.root.Children["test"].TotalDuration = 250 * time.Millisecond
+	timing.root.Children["test"].Children["thread"].Children["inside"].TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, "test - 250ms\ntest.thread - new timing context\ntest.thread.inside - 100ms\n", timing.String())
+
+	js, err := json.Marshal(Details(ctx))
+	assert.NoError(t, err)
+	// Indented
+	// {
+	//   "test": {
+	//     "entry-count": 1,
+	//     "exit-count": 1,
+	//     "total-duration-ns": 250000000,
+	//     "children": {
+	//       "thread": {
+	//         "children": {
+	//           "inside": {
+	//             "entry-count": 1,
+	//             "exit-count": 1,
+	//             "total-duration-ns": 100000000
+	//           }
+	//         },
+	//         "sub-thread": true
+	//       }
+	//     }
+	//   }
+	// }
+	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-thread\":true}}}}", string(js))
 }

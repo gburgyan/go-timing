@@ -9,17 +9,17 @@ import (
 )
 
 type Timing struct {
-	root      *Location
-	current   *Location
-	subThread bool
+	root    *Location
+	current *Location
 }
 
 type Location struct {
-	Name          string
-	EntryCount    int
-	ExitCount     int
-	TotalDuration time.Duration
-	Children      map[string]*Location
+	Name          string               `json:"-"`
+	EntryCount    int                  `json:"entry-count,omitempty"`
+	ExitCount     int                  `json:"exit-count,omitempty"`
+	TotalDuration time.Duration        `json:"total-duration-ns,omitempty"`
+	Children      map[string]*Location `json:"children,omitempty"`
+	SubThread     bool                 `json:"sub-thread,omitempty"`
 }
 
 type Completed func()
@@ -86,11 +86,10 @@ func (t *Timing) BeginSubThread(name string) *Timing {
 	if childLoc.EntryCount > 0 {
 		panic("sub-threads require a new timing location")
 	}
-
+	childLoc.SubThread = true
 	child := &Timing{
-		current:   childLoc,
-		root:      childLoc,
-		subThread: true,
+		current: childLoc,
+		root:    childLoc,
 	}
 
 	return child
@@ -111,6 +110,25 @@ func (l *Location) getSubLocation(name string) *Location {
 	return c
 }
 
+func Start(ctx context.Context, name string) Completed {
+	t := GetTiming(ctx)
+	return t.Start(name)
+}
+
+func BeginSubThread(ctx context.Context, name string) context.Context {
+	t := GetTiming(ctx)
+	return t.BeginSubThreadContext(ctx, name)
+}
+
+func Details(ctx context.Context) map[string]*Location {
+	t := GetTiming(ctx)
+	return t.Details()
+}
+
+func (t *Timing) Details() map[string]*Location {
+	return t.root.Children
+}
+
 func (t *Timing) String() string {
 	b := strings.Builder{}
 	t.root.dumpToBuilder(&b, "", "")
@@ -119,22 +137,26 @@ func (t *Timing) String() string {
 
 func (l *Location) dumpToBuilder(b *strings.Builder, prefix, path string) {
 	var childPrefix string
-	if len(l.Name) > 0 {
-		b.WriteString(fmt.Sprintf("%s%s%s", prefix, path, l.Name))
-		if l.EntryCount > 0 {
-			b.WriteString(fmt.Sprintf(" - %s", l.TotalDuration.Round(time.Microsecond)))
-			if l.EntryCount != l.ExitCount {
-				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
-			} else if l.EntryCount > 1 {
-				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
-			}
-		}
-		b.WriteString("\n")
+	if l.SubThread {
+		b.WriteString(fmt.Sprintf("%s%s%s - new timing context\n", prefix, path, l.Name))
 		childPrefix = path + l.Name + "."
 	} else {
-		childPrefix = path
+		if len(l.Name) > 0 {
+			b.WriteString(fmt.Sprintf("%s%s%s", prefix, path, l.Name))
+			if l.EntryCount > 0 {
+				b.WriteString(fmt.Sprintf(" - %s", l.TotalDuration.Round(time.Microsecond)))
+				if l.EntryCount != l.ExitCount {
+					b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
+				} else if l.EntryCount > 1 {
+					b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
+				}
+			}
+			b.WriteString("\n")
+			childPrefix = path + l.Name + "."
+		} else {
+			childPrefix = path
+		}
 	}
-
 	var keys []string
 	for k := range l.Children {
 		keys = append(keys, k)
