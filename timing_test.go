@@ -31,5 +31,5 @@ func TestContextWithTiming(t *testing.T) {
 	// Force a time
 	testLocation.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "test - 100.0000ms calls: 2\n", timing.String())
+	assert.Equal(t, "test - 100ms calls: 2\n", timing.String())
 }

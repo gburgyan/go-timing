@@ -127,7 +127,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix string) {
 	var childPrefix string
 	if len(l.Name) > 0 {
 		b.WriteString(prefix)
-		b.WriteString(fmt.Sprintf("%s - %.4fms", l.Name, float64(l.TotalDuration.Microseconds()/1000.0)))
+		b.WriteString(fmt.Sprintf("%s - %s", l.Name, l.TotalDuration.Round(time.Microsecond)))
 		if l.EntryCount != l.ExitCount {
 			b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
 		} else if l.EntryCount > 1 {
