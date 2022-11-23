@@ -12,17 +12,17 @@ import (
 type Timing struct {
 	mu             sync.Mutex
 	asyncProcesses map[string]*Timing
-	locations      map[string]*location
-	locationStack  []string
+	root           *Location
+	current        *Location
 }
 
-type location struct {
-	level         int
-	name          string
-	fullName      string
-	totalDuration time.Duration
-	entryCount    int
-	exitCount     int
+type Location struct {
+	Name          string
+	EntryCount    int
+	ExitCount     int
+	TotalDuration time.Duration
+	Owner         *Timing
+	Children      map[string]*Location
 }
 
 type Completed func()
@@ -48,21 +48,41 @@ func GetTiming(ctx context.Context) *Timing {
 }
 
 func NewTiming() *Timing {
-	return &Timing{
+	t := &Timing{
 		asyncProcesses: map[string]*Timing{},
-		locations:      map[string]*location{},
 	}
+
+	root := &Location{
+		Name:  "", // root
+		Owner: t,
+	}
+	t.current = root
+	t.root = root
+
+	return t
 }
 
 func (t *Timing) Start(name string) Completed {
-	l := t.getSubLocation(name)
-	l.entryCount++
+	if len(name) == 0 {
+		panic("timing name much be a non-zero length string")
+	}
+
+	t.mu.Lock()
+	parent := t.current
+	l := parent.getSubLocation(name)
+	t.current = l
+	l.EntryCount++
+	t.mu.Unlock()
+
 	startTime := time.Now()
 	return func() {
 		d := time.Since(startTime)
-		l.exitCount++
-		l.totalDuration += d
-		t.locationStack = t.locationStack[0 : l.level-1]
+
+		t.mu.Lock()
+		l.ExitCount++
+		l.TotalDuration += d
+		t.current = parent
+		t.mu.Unlock()
 	}
 }
 
@@ -73,43 +93,59 @@ func (t *Timing) BeginAsyncContext(ctx context.Context, name string) context.Con
 
 func (t *Timing) BeginAsync(name string) *Timing {
 	child := NewTiming()
+	t.mu.Lock()
 	t.asyncProcesses[name] = child
+	t.mu.Unlock()
 	return child
 }
 
-func (t *Timing) getSubLocation(name string) *location {
-	t.locationStack = append(t.locationStack, name)
-	fullName := strings.Join(t.locationStack, ".")
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if l, ok := t.locations[fullName]; ok {
+func (l *Location) getSubLocation(name string) *Location {
+	if l.Children == nil {
+		l.Children = map[string]*Location{}
+	}
+
+	if l, ok := l.Children[name]; ok {
 		return l
 	}
-	l := &location{
-		name:     name,
-		fullName: fullName,
-		level:    len(t.locationStack),
+	c := &Location{
+		Name:  name,
+		Owner: l.Owner,
 	}
-	t.locations[fullName] = l
-	return l
+	l.Children[name] = c
+	return c
 }
 
 func (t *Timing) String() string {
-	var keys []string
+	t.mu.Lock()
 	b := strings.Builder{}
-	for k := range t.locations {
+	t.root.dumpToBuilder(&b, "")
+	t.mu.Unlock()
+	return b.String()
+}
+
+func (l *Location) dumpToBuilder(b *strings.Builder, prefix string) {
+	var childPrefix string
+	if len(l.Name) > 0 {
+		b.WriteString(prefix)
+		b.WriteString(fmt.Sprintf("%s - %.4fms", l.Name, float64(l.TotalDuration.Microseconds()/1000.0)))
+		if l.EntryCount != l.ExitCount {
+			b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
+		} else if l.EntryCount > 1 {
+			b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
+		}
+		b.WriteString("\n")
+		childPrefix = prefix + "." + l.Name
+	} else {
+		childPrefix = prefix
+	}
+
+	var keys []string
+	for k := range l.Children {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		l := t.locations[k]
-		b.WriteString(fmt.Sprintf("%s - %.4fms", k, float64(l.totalDuration.Microseconds()/1000.0)))
-		if l.entryCount != l.exitCount {
-			b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.entryCount, l.exitCount))
-		} else if l.entryCount > 1 {
-			b.WriteString(fmt.Sprintf(" calls: %d", l.entryCount))
-		}
-		b.WriteString("\n")
+		l := l.Children[k]
+		l.dumpToBuilder(b, childPrefix)
 	}
-	return b.String()
 }

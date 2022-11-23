@@ -13,27 +13,23 @@ func TestContextWithTiming(t *testing.T) {
 	timing := GetTiming(ctx)
 	testComplete := timing.Start("test")
 
-	assert.Contains(t, timing.locations, "test")
-	testLocation := timing.locations["test"]
-	assert.Equal(t, 1, testLocation.entryCount)
-	assert.Equal(t, 0, testLocation.exitCount)
-	assert.Len(t, timing.locationStack, 1)
+	assert.Contains(t, timing.root.Children, "test")
+	testLocation := timing.root.Children["test"]
+	assert.Equal(t, 1, testLocation.EntryCount)
+	assert.Equal(t, 0, testLocation.ExitCount)
 	testComplete()
-	assert.Len(t, timing.locationStack, 0)
 
 	testComplete2 := timing.Start("test")
-	assert.Equal(t, 2, testLocation.entryCount)
-	assert.Equal(t, 1, testLocation.exitCount)
-	assert.Len(t, timing.locationStack, 1)
+	assert.Equal(t, 2, testLocation.EntryCount)
+	assert.Equal(t, 1, testLocation.ExitCount)
 	testComplete2()
-	assert.Len(t, timing.locationStack, 0)
 
-	assert.Equal(t, 2, testLocation.entryCount)
-	assert.Equal(t, 2, testLocation.exitCount)
-	assert.Greater(t, testLocation.totalDuration, time.Duration(0))
+	assert.Equal(t, 2, testLocation.EntryCount)
+	assert.Equal(t, 2, testLocation.ExitCount)
+	assert.Greater(t, testLocation.TotalDuration, time.Duration(0))
 
 	// Force a time
-	testLocation.totalDuration = 100 * time.Millisecond
+	testLocation.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "test - 100.0000ms calls: 2\n", timing.String())
 }
