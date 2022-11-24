@@ -33,7 +33,7 @@ func ContextWithTiming(ctx context.Context) context.Context {
 	return context.WithValue(ctx, timingContextKey, t)
 }
 
-func GetTiming(ctx context.Context) *Timing {
+func FromContext(ctx context.Context) *Timing {
 	tca := ctx.Value(timingContextKey)
 	if tca == nil {
 		panic("no timing context present")
@@ -111,37 +111,42 @@ func (l *Location) getSubLocation(name string) *Location {
 }
 
 func Start(ctx context.Context, name string) Completed {
-	t := GetTiming(ctx)
+	t := FromContext(ctx)
 	return t.Start(name)
 }
 
 func BeginSubThread(ctx context.Context, name string) context.Context {
-	t := GetTiming(ctx)
+	t := FromContext(ctx)
 	return t.BeginSubThreadContext(ctx, name)
 }
 
-func Details(ctx context.Context) map[string]*Location {
-	t := GetTiming(ctx)
-	return t.Details()
+func Root(ctx context.Context) map[string]*Location {
+	t := FromContext(ctx)
+	return t.Root()
 }
 
-func (t *Timing) Details() map[string]*Location {
+func (t *Timing) Root() map[string]*Location {
 	return t.root.Children
 }
 
 func (t *Timing) String() string {
 	b := strings.Builder{}
-	t.root.dumpToBuilder(&b, "", "")
+	t.root.dumpToBuilder(&b, false, "", " > ", "")
 	return b.String()
 }
 
-func (l *Location) dumpToBuilder(b *strings.Builder, prefix, path string) {
+func (l *Location) dumpToBuilder(b *strings.Builder, onlyLeaf bool, prefix, separator, path string) {
 	var childPrefix string
+	printLine := !onlyLeaf || (l.Children == nil || len(l.Children) == 0)
+	root := len(l.Name) == 0
 	if l.SubThread {
-		b.WriteString(fmt.Sprintf("%s%s%s - new timing context\n", prefix, path, l.Name))
-		childPrefix = path + l.Name + "."
+		name := "(" + l.Name + ")"
+		if printLine {
+			b.WriteString(fmt.Sprintf("%s%s%s - new timing context\n", prefix, path, name))
+		}
+		childPrefix = path + name + separator
 	} else {
-		if len(l.Name) > 0 {
+		if !root && printLine {
 			b.WriteString(fmt.Sprintf("%s%s%s", prefix, path, l.Name))
 			if l.EntryCount > 0 {
 				b.WriteString(fmt.Sprintf(" - %s", l.TotalDuration.Round(time.Microsecond)))
@@ -150,9 +155,9 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, path string) {
 				} else if l.EntryCount > 1 {
 					b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
 				}
+				b.WriteString("\n")
 			}
-			b.WriteString("\n")
-			childPrefix = path + l.Name + "."
+			childPrefix = path + l.Name + separator
 		} else {
 			childPrefix = path
 		}
@@ -164,6 +169,6 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, path string) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		l := l.Children[k]
-		l.dumpToBuilder(b, prefix, childPrefix)
+		l.dumpToBuilder(b, onlyLeaf, prefix, separator, childPrefix)
 	}
 }

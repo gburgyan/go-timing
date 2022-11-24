@@ -11,7 +11,7 @@ import (
 func TestContextWithTiming(t *testing.T) {
 	ctx := ContextWithTiming(context.Background())
 
-	timing := GetTiming(ctx)
+	timing := FromContext(ctx)
 	testComplete := timing.Start("test")
 
 	assert.Contains(t, timing.root.Children, "test")
@@ -48,13 +48,13 @@ func TestContextWithSubThreads(t *testing.T) {
 
 	outsideComplete()
 
-	timing := GetTiming(ctx)
+	timing := FromContext(ctx)
 	timing.root.Children["test"].TotalDuration = 250 * time.Millisecond
 	timing.root.Children["test"].Children["thread"].Children["inside"].TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "test - 250ms\ntest.thread - new timing context\ntest.thread.inside - 100ms\n", timing.String())
+	assert.Equal(t, "test - 250ms\ntest > (thread) - new timing context\ntest > (thread) > inside - 100ms\n", timing.String())
 
-	js, err := json.Marshal(Details(ctx))
+	js, err := json.Marshal(Root(ctx))
 	assert.NoError(t, err)
 	// Indented
 	// {
@@ -77,4 +77,5 @@ func TestContextWithSubThreads(t *testing.T) {
 	//   }
 	// }
 	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-thread\":true}}}}", string(js))
+
 }

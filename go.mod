@@ -1,4 +1,4 @@
-module go-timing
+module github.com/gburgyan/go-timing
 
 go 1.19
 
