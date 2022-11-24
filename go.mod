@@ -1,6 +1,6 @@
 module github.com/gburgyan/go-timing
 
-go 1.19
+go 1.13
 
 require github.com/stretchr/testify v1.8.1
 
