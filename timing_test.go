@@ -44,7 +44,7 @@ func TestContextWithSubThreads(t *testing.T) {
 	outsideComplete := Start(ctx, "test")
 
 	// Prentend this is a new Goroutine
-	threadCtx := BeginSubRoot(ctx, "thread")
+	threadCtx := BeginSubRootContext(ctx, "thread")
 	insideComplete := Start(threadCtx, "inside")
 	insideComplete()
 	// End of Goroutine
@@ -56,6 +56,7 @@ func TestContextWithSubThreads(t *testing.T) {
 	timing.root.Children["test"].Children["thread"].Children["inside"].TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "test - 250ms\ntest > (thread) - new timing context\ntest > (thread) > inside - 100ms\n", timing.String())
+	assert.Equal(t, "!test - 250ms\n!test>(thread) - new timing context\n!test>(thread)>inside - 100ms\n", timing.Report("!", ">", false))
 
 	js, err := json.Marshal(Root(ctx))
 	assert.NoError(t, err)
@@ -80,6 +81,9 @@ func TestContextWithSubThreads(t *testing.T) {
 	//   }
 	// }
 	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-root\":true}}}}", string(js))
+	m := timing.ReportMap(">", 1000000, false)
+	assert.Equal(t, 250.0, m["test"])
+	assert.Equal(t, 100.0, m["test>(thread)>inside"])
 }
 
 func TestUninitializedUse(t *testing.T) {
@@ -99,7 +103,7 @@ func TestInvalidNameSubRoot(t *testing.T) {
 	ctx := ContextWithTiming(context.Background())
 	Start(ctx, "task")()
 	assert.Panics(t, func() {
-		BeginSubRoot(ctx, "task")
+		BeginSubRootContext(ctx, "task")
 	})
 }
 
