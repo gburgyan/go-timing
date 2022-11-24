@@ -19,10 +19,13 @@ func TestContextWithTiming(t *testing.T) {
 	assert.Equal(t, 1, testLocation.EntryCount)
 	assert.Equal(t, 0, testLocation.ExitCount)
 	testComplete()
+	testLocation.TotalDuration = 50 * time.Millisecond
+	assert.Equal(t, "test - 50ms\n", timing.String())
 
 	testComplete2 := timing.Start("test")
 	assert.Equal(t, 2, testLocation.EntryCount)
 	assert.Equal(t, 1, testLocation.ExitCount)
+	assert.Equal(t, "test - 50ms entries: 2 exits: 1\n", timing.String())
 	testComplete2()
 
 	assert.Equal(t, 2, testLocation.EntryCount)
@@ -41,7 +44,7 @@ func TestContextWithSubThreads(t *testing.T) {
 	outsideComplete := Start(ctx, "test")
 
 	// Prentend this is a new Goroutine
-	threadCtx := BeginSubThread(ctx, "thread")
+	threadCtx := BeginSubRoot(ctx, "thread")
 	insideComplete := Start(threadCtx, "inside")
 	insideComplete()
 	// End of Goroutine
@@ -71,11 +74,39 @@ func TestContextWithSubThreads(t *testing.T) {
 	//             "total-duration-ns": 100000000
 	//           }
 	//         },
-	//         "sub-thread": true
+	//         "sub-root": true
 	//       }
 	//     }
 	//   }
 	// }
-	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-thread\":true}}}}", string(js))
+	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-root\":true}}}}", string(js))
+}
 
+func TestUninitializedUse(t *testing.T) {
+	assert.Panics(t, func() {
+		Start(context.Background(), "fail")
+	})
+}
+
+func TestInvalidName(t *testing.T) {
+	ctx := ContextWithTiming(context.Background())
+	assert.Panics(t, func() {
+		Start(ctx, "")
+	})
+}
+
+func TestInvalidNameSubRoot(t *testing.T) {
+	ctx := ContextWithTiming(context.Background())
+	Start(ctx, "task")()
+	assert.Panics(t, func() {
+		BeginSubRoot(ctx, "task")
+	})
+}
+
+func TestMessedUpContext(t *testing.T) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, timingContextKey, "Not correct")
+	assert.Panics(t, func() {
+		FromContext(ctx)
+	})
 }

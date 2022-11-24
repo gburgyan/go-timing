@@ -2,8 +2,6 @@ package timing
 
 import (
 	"context"
-	"fmt"
-	"sort"
 	"strings"
 	"time"
 )
@@ -19,7 +17,7 @@ type Location struct {
 	ExitCount     int                  `json:"exit-count,omitempty"`
 	TotalDuration time.Duration        `json:"total-duration-ns,omitempty"`
 	Children      map[string]*Location `json:"children,omitempty"`
-	SubThread     bool                 `json:"sub-thread,omitempty"`
+	SubRoot       bool                 `json:"sub-root,omitempty"`
 }
 
 type Completed func()
@@ -27,34 +25,6 @@ type Completed func()
 type key int
 
 const timingContextKey key = 0
-
-func ContextWithTiming(ctx context.Context) context.Context {
-	t := NewTiming("")
-	return context.WithValue(ctx, timingContextKey, t)
-}
-
-func FromContext(ctx context.Context) *Timing {
-	tca := ctx.Value(timingContextKey)
-	if tca == nil {
-		panic("no timing context present")
-	}
-	if tc, ok := tca.(*Timing); ok {
-		return tc
-	}
-	panic("invalid timing context type")
-}
-
-func NewTiming(rootName string) *Timing {
-	root := &Location{
-		Name: rootName, // root
-	}
-	t := &Timing{
-		current: root,
-		root:    root,
-	}
-
-	return t
-}
 
 func (t *Timing) Start(name string) Completed {
 	if len(name) == 0 {
@@ -76,25 +46,6 @@ func (t *Timing) Start(name string) Completed {
 	}
 }
 
-func (t *Timing) BeginSubThreadContext(ctx context.Context, name string) context.Context {
-	child := t.BeginSubThread(name)
-	return context.WithValue(ctx, timingContextKey, child)
-}
-
-func (t *Timing) BeginSubThread(name string) *Timing {
-	childLoc := t.current.getSubLocation(name)
-	if childLoc.EntryCount > 0 {
-		panic("sub-threads require a new timing location")
-	}
-	childLoc.SubThread = true
-	child := &Timing{
-		current: childLoc,
-		root:    childLoc,
-	}
-
-	return child
-}
-
 func (l *Location) getSubLocation(name string) *Location {
 	if l.Children == nil {
 		l.Children = map[string]*Location{}
@@ -110,19 +61,30 @@ func (l *Location) getSubLocation(name string) *Location {
 	return c
 }
 
-func Start(ctx context.Context, name string) Completed {
-	t := FromContext(ctx)
-	return t.Start(name)
+func (t *Timing) BeginSubRootContext(ctx context.Context, name string) context.Context {
+	child := t.BeginSubRoot(name)
+	return context.WithValue(ctx, timingContextKey, child)
 }
 
-func BeginSubThread(ctx context.Context, name string) context.Context {
-	t := FromContext(ctx)
-	return t.BeginSubThreadContext(ctx, name)
-}
+func (t *Timing) BeginSubRoot(name string) *Timing {
+	if t.current.Children == nil {
+		t.current.Children = map[string]*Location{}
+	}
+	if _, ok := t.current.Children[name]; ok {
+		panic("sub-threads require a new timing location")
+	}
+	childLoc := &Location{
+		Name:    name,
+		SubRoot: true,
+	}
+	t.current.Children[name] = childLoc
 
-func Root(ctx context.Context) map[string]*Location {
-	t := FromContext(ctx)
-	return t.Root()
+	child := &Timing{
+		current: childLoc,
+		root:    childLoc,
+	}
+
+	return child
 }
 
 func (t *Timing) Root() map[string]*Location {
@@ -133,42 +95,4 @@ func (t *Timing) String() string {
 	b := strings.Builder{}
 	t.root.dumpToBuilder(&b, false, "", " > ", "")
 	return b.String()
-}
-
-func (l *Location) dumpToBuilder(b *strings.Builder, onlyLeaf bool, prefix, separator, path string) {
-	var childPrefix string
-	printLine := !onlyLeaf || (l.Children == nil || len(l.Children) == 0)
-	root := len(l.Name) == 0
-	if l.SubThread {
-		name := "(" + l.Name + ")"
-		if printLine {
-			b.WriteString(fmt.Sprintf("%s%s%s - new timing context\n", prefix, path, name))
-		}
-		childPrefix = path + name + separator
-	} else {
-		if !root && printLine {
-			b.WriteString(fmt.Sprintf("%s%s%s", prefix, path, l.Name))
-			if l.EntryCount > 0 {
-				b.WriteString(fmt.Sprintf(" - %s", l.TotalDuration.Round(time.Microsecond)))
-				if l.EntryCount != l.ExitCount {
-					b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
-				} else if l.EntryCount > 1 {
-					b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
-				}
-				b.WriteString("\n")
-			}
-			childPrefix = path + l.Name + separator
-		} else {
-			childPrefix = path
-		}
-	}
-	var keys []string
-	for k := range l.Children {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
-		l := l.Children[k]
-		l.dumpToBuilder(b, onlyLeaf, prefix, separator, childPrefix)
-	}
 }
