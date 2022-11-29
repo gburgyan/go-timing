@@ -2,115 +2,76 @@ package timing
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
-func TestContextWithTiming(t *testing.T) {
-	ctx := ContextWithTiming(context.Background())
-
-	timing := FromContext(ctx)
-	testComplete := timing.Start("test")
-
-	assert.Contains(t, timing.root.Children, "test")
-	testLocation := timing.root.Children["test"]
-	assert.Equal(t, 1, testLocation.EntryCount)
-	assert.Equal(t, 0, testLocation.ExitCount)
-	testComplete()
-	testLocation.TotalDuration = 50 * time.Millisecond
-	assert.Equal(t, "test - 50ms\n", timing.String())
-
-	testComplete2 := timing.Start("test")
-	assert.Equal(t, 2, testLocation.EntryCount)
-	assert.Equal(t, 1, testLocation.ExitCount)
-	assert.Equal(t, "test - 50ms entries: 2 exits: 1\n", timing.String())
-	testComplete2()
-
-	assert.Equal(t, 2, testLocation.EntryCount)
-	assert.Equal(t, 2, testLocation.ExitCount)
-	assert.Greater(t, testLocation.TotalDuration, time.Duration(0))
-
-	// Force a time
-	testLocation.TotalDuration = 100 * time.Millisecond
-
-	assert.Equal(t, "test - 100ms calls: 2\n", timing.String())
-}
-
-func TestContextWithSubThreads(t *testing.T) {
-	ctx := ContextWithTiming(context.Background())
-
-	outsideComplete := Start(ctx, "test")
-
-	// Prentend this is a new Goroutine
-	threadCtx := BeginSubRootContext(ctx, "thread")
-	insideComplete := Start(threadCtx, "inside")
-	insideComplete()
-	// End of Goroutine
-
-	outsideComplete()
-
-	timing := FromContext(ctx)
-	timing.root.Children["test"].TotalDuration = 250 * time.Millisecond
-	timing.root.Children["test"].Children["thread"].Children["inside"].TotalDuration = 100 * time.Millisecond
-
-	assert.Equal(t, "test - 250ms\ntest > (thread) - new timing context\ntest > (thread) > inside - 100ms\n", timing.String())
-	assert.Equal(t, "!test - 250ms\n!test>(thread) - new timing context\n!test>(thread)>inside - 100ms\n", timing.Report("!", ">", false))
-
-	js, err := json.Marshal(Root(ctx))
-	assert.NoError(t, err)
-	// Indented
-	// {
-	//   "test": {
-	//     "entry-count": 1,
-	//     "exit-count": 1,
-	//     "total-duration-ns": 250000000,
-	//     "children": {
-	//       "thread": {
-	//         "children": {
-	//           "inside": {
-	//             "entry-count": 1,
-	//             "exit-count": 1,
-	//             "total-duration-ns": 100000000
-	//           }
-	//         },
-	//         "sub-root": true
-	//       }
-	//     }
-	//   }
-	// }
-	assert.Equal(t, "{\"test\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":250000000,\"children\":{\"thread\":{\"children\":{\"inside\":{\"entry-count\":1,\"exit-count\":1,\"total-duration-ns\":100000000}},\"sub-root\":true}}}}", string(js))
-	m := timing.ReportMap(">", 1000000, false)
-	assert.Equal(t, 250.0, m["test"])
-	assert.Equal(t, 100.0, m["test>(thread)>inside"])
-}
-
-func TestUninitializedUse(t *testing.T) {
-	assert.Panics(t, func() {
-		Start(context.Background(), "fail")
-	})
-}
-
-func TestInvalidName(t *testing.T) {
-	ctx := ContextWithTiming(context.Background())
-	assert.Panics(t, func() {
-		Start(ctx, "")
-	})
-}
-
-func TestInvalidNameSubRoot(t *testing.T) {
-	ctx := ContextWithTiming(context.Background())
-	Start(ctx, "task")()
-	assert.Panics(t, func() {
-		BeginSubRootContext(ctx, "task")
-	})
-}
-
-func TestMessedUpContext(t *testing.T) {
+func Test_TrivialRoot(t *testing.T) {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, timingContextKey, "Not correct")
-	assert.Panics(t, func() {
-		FromContext(ctx)
-	})
+
+	tCtx := Root(ctx)
+
+	assert.Equal(t, 0, tCtx.EntryCount)
+	assert.Equal(t, 0, tCtx.ExitCount)
+
+	assert.Equal(t, "", tCtx.String())
+}
+
+func Test_NonTrivialRoot(t *testing.T) {
+	ctx := context.Background()
+
+	tCtx := Start(ctx, "root")
+	tCtx.Complete()
+
+	assert.Equal(t, 1, tCtx.EntryCount)
+	assert.Equal(t, 1, tCtx.ExitCount)
+	assert.Greater(t, tCtx.TotalDuration, time.Duration(0))
+
+	tCtx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, "root - 100ms\n", tCtx.String())
+}
+
+func Test_Nesting(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx := Start(ctx, "root")
+
+	child1Ctx := Start(rootCtx, "child 1")
+	child1Ctx.Complete()
+
+	child2Ctx := Start(rootCtx, "child 2")
+	child2Ctx.Complete()
+
+	rootCtx.Complete()
+
+	rootCtx.TotalDuration = 200 * time.Millisecond
+	child1Ctx.TotalDuration = 100 * time.Millisecond
+	child2Ctx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms\n", rootCtx.String())
+}
+
+func Test_ContextBehavior(t *testing.T) {
+	type tt struct {
+		v int
+	}
+	o1 := tt{42}
+	o2 := tt{105}
+
+	ctx := context.Background()
+
+	ctxV1 := context.WithValue(ctx, 1, o1)
+
+	rootCtx := Start(ctxV1, "root")
+
+	ctxV2 := context.WithValue(rootCtx, 2, o2)
+
+	child2Ctx := Start(ctxV2, "child 1")
+
+	assert.Equal(t, o1, child2Ctx.Value(1))
+	assert.Equal(t, o2, child2Ctx.Value(2))
+
+	assert.Equal(t, "root - 0s entries: 1 exits: 0\nroot > child 1 - 0s entries: 1 exits: 0\n", rootCtx.String())
 }
