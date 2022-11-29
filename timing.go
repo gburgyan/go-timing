@@ -28,6 +28,9 @@ func Start(ctx context.Context, name string) *Context {
 	if name == "" {
 		panic("non-root timings must be named")
 	}
+	if ctx == nil {
+		panic("context must be defined")
+	}
 	p := findParentTiming(ctx)
 	if p == nil {
 		c := &Context{
@@ -41,9 +44,11 @@ func Start(ctx context.Context, name string) *Context {
 }
 
 func Root(ctx context.Context) *Context {
+	if ctx == nil {
+		panic("context must be defined")
+	}
 	c := &Context{
 		prevCtx: ctx,
-		Name:    "",
 	}
 	return c
 }
