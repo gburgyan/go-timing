@@ -24,13 +24,10 @@ type contextTiming int
 
 const contextTimingKey contextTiming = 0
 
+// ForName returns an un-started Context. This is generally not used by client code, but
+// may be useful for a context that needs to be repeatedly started and completed for some
+// reason.
 func ForName(ctx context.Context, name string) *Context {
-
-}
-
-// Start begins a timing context and relates it to a preceding timing context if it exists.
-// If a previous context does not exist then this starts a new named root timing context.
-func Start(ctx context.Context, name string) *Context {
 	if name == "" {
 		panic("non-root timings must be named")
 	}
@@ -42,11 +39,18 @@ func Start(ctx context.Context, name string) *Context {
 		c := &Context{
 			Name: name,
 		}
-		c.Start(ctx)
 		return c
 	} else {
-		return p.startChild(ctx, name)
+		return p.getChild(name)
 	}
+}
+
+// Start begins a timing context and relates it to a preceding timing context if it exists.
+// If a previous context does not exist then this starts a new named root timing context.
+func Start(ctx context.Context, name string) *Context {
+	c := ForName(ctx, name)
+	c.Start(ctx)
+	return c
 }
 
 // Root creates a new unnamed timing context. This is similar to Start except there are no timers
@@ -61,6 +65,8 @@ func Root(ctx context.Context) *Context {
 	return c
 }
 
+// Start starts the timer on a given timing context. A timer can only be started if it is not
+// already started.
 func (c *Context) Start(ctx context.Context) {
 	if !c.startTime.IsZero() || c.prevCtx != nil {
 		panic("reentrant timing not supported")
@@ -122,6 +128,7 @@ func (c *Context) ReportMap(separator string, divisor float64, onlyLeaf bool) ma
 	return result
 }
 
+// findParentTiming is a global that finds most recent timing context on the context stack.
 func findParentTiming(ctx context.Context) *Context {
 	value := ctx.Value(contextTimingKey)
 	if value == nil {
@@ -133,7 +140,9 @@ func findParentTiming(ctx context.Context) *Context {
 	panic("invalid context timing type")
 }
 
-func (c *Context) startChild(ctx context.Context, name string) *Context {
+// getChild gets an existing timing context or creates a child timing context if one
+// does not exist.
+func (c *Context) getChild(name string) *Context {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -141,7 +150,6 @@ func (c *Context) startChild(ctx context.Context, name string) *Context {
 		c.Children = map[string]*Context{}
 	}
 	if cc, ok := c.Children[name]; ok {
-		cc.Start(ctx)
 		return cc
 	} else {
 		cc := &Context{
@@ -149,7 +157,6 @@ func (c *Context) startChild(ctx context.Context, name string) *Context {
 			Name:   name,
 		}
 		c.Children[name] = cc
-		cc.Start(ctx)
 		return cc
 	}
 }
