@@ -2,6 +2,7 @@ package timing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -85,6 +86,10 @@ func Test_Nesting(t *testing.T) {
 	assert.Equal(t, 210.0, m["root"])
 	assert.Equal(t, 100.0, m["root.child 1"])
 	assert.Equal(t, 100.0, m["root.child 2"])
+
+	js, err := json.Marshal(rootCtx)
+	assert.NoError(t, err)
+	assert.Equal(t, "{\"name\":\"root\",\"children\":{\"child 1\":{\"name\":\"child 1\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000},\"child 2\":{\"name\":\"child 2\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000}},\"entry-count\":1,\"exit-count\":1,\"total-duration\":210000000}", string(js))
 }
 
 func Test_ContextBehavior(t *testing.T) {

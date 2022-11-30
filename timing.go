@@ -14,19 +14,19 @@ type Context struct {
 	startTime time.Time
 
 	// Name is the name of this timing context. If empty this is the non-reporting root of the context.
-	Name string
+	Name string `json:"name,omitempty"`
 
 	// Children has all the child timing contexts that have been started under this context.
-	Children map[string]*Context
+	Children map[string]*Context `json:"children,omitempty"`
 
 	// EntryCount is the number of times the timing context has been started.
-	EntryCount int
+	EntryCount int `json:"entry-count,omitempty"`
 
 	// ExistCount is the number of times the timing context has been completed.
-	ExitCount int
+	ExitCount int `json:"exit-count,omitempty"`
 
 	// TotalDuration is the amount of time this context has been started.
-	TotalDuration time.Duration
+	TotalDuration time.Duration `json:"total-duration,omitempty"`
 }
 
 type contextTiming int
