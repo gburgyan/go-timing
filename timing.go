@@ -24,6 +24,12 @@ type contextTiming int
 
 const contextTimingKey contextTiming = 0
 
+func ForName(ctx context.Context, name string) *Context {
+
+}
+
+// Start begins a timing context and relates it to a preceding timing context if it exists.
+// If a previous context does not exist then this starts a new named root timing context.
 func Start(ctx context.Context, name string) *Context {
 	if name == "" {
 		panic("non-root timings must be named")
@@ -43,6 +49,8 @@ func Start(ctx context.Context, name string) *Context {
 	}
 }
 
+// Root creates a new unnamed timing context. This is similar to Start except there are no timers
+// started. This is provided to allow for a simpler report if it's desired.
 func Root(ctx context.Context) *Context {
 	if ctx == nil {
 		panic("context must be defined")
@@ -51,57 +59,6 @@ func Root(ctx context.Context) *Context {
 		prevCtx: ctx,
 	}
 	return c
-}
-
-func findParentTiming(ctx context.Context) *Context {
-	value := ctx.Value(contextTimingKey)
-	if value == nil {
-		return nil
-	}
-	if ct, ok := value.(*Context); ok {
-		return ct
-	}
-	panic("invalid context timing type")
-}
-
-func (c *Context) Deadline() (deadline time.Time, ok bool) {
-	return c.prevCtx.Deadline()
-}
-
-func (c *Context) Done() <-chan struct{} {
-	return c.prevCtx.Done()
-}
-
-func (c *Context) Err() error {
-	return c.prevCtx.Err()
-}
-
-func (c *Context) Value(key interface{}) interface{} {
-	if key == contextTimingKey {
-		return c
-	}
-	return c.prevCtx.Value(key)
-}
-
-func (c *Context) startChild(ctx context.Context, name string) *Context {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.Children == nil {
-		c.Children = map[string]*Context{}
-	}
-	if cc, ok := c.Children[name]; ok {
-		cc.Start(ctx)
-		return cc
-	} else {
-		cc := &Context{
-			Parent: c,
-			Name:   name,
-		}
-		c.Children[name] = cc
-		cc.Start(ctx)
-		return cc
-	}
 }
 
 func (c *Context) Start(ctx context.Context) {
@@ -113,6 +70,8 @@ func (c *Context) Start(ctx context.Context) {
 	c.startTime = time.Now()
 }
 
+// Complete marks a timing context as completed and adds the time to the total duration for
+// that timing context.
 func (c *Context) Complete() {
 	d := time.Since(c.startTime)
 	if c.startTime.IsZero() || c.prevCtx == nil {
@@ -161,4 +120,57 @@ func (c *Context) ReportMap(separator string, divisor float64, onlyLeaf bool) ma
 	result := map[string]float64{}
 	c.dumpToMap(result, separator, "", divisor, onlyLeaf)
 	return result
+}
+
+func findParentTiming(ctx context.Context) *Context {
+	value := ctx.Value(contextTimingKey)
+	if value == nil {
+		return nil
+	}
+	if ct, ok := value.(*Context); ok {
+		return ct
+	}
+	panic("invalid context timing type")
+}
+
+func (c *Context) startChild(ctx context.Context, name string) *Context {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.Children == nil {
+		c.Children = map[string]*Context{}
+	}
+	if cc, ok := c.Children[name]; ok {
+		cc.Start(ctx)
+		return cc
+	} else {
+		cc := &Context{
+			Parent: c,
+			Name:   name,
+		}
+		c.Children[name] = cc
+		cc.Start(ctx)
+		return cc
+	}
+}
+
+// context.Context implementation
+
+func (c *Context) Deadline() (deadline time.Time, ok bool) {
+	return c.prevCtx.Deadline()
+}
+
+func (c *Context) Done() <-chan struct{} {
+	return c.prevCtx.Done()
+}
+
+func (c *Context) Err() error {
+	return c.prevCtx.Err()
+}
+
+func (c *Context) Value(key interface{}) interface{} {
+	if key == contextTimingKey {
+		return c
+	}
+	return c.prevCtx.Value(key)
 }
