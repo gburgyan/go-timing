@@ -8,16 +8,25 @@ import (
 )
 
 type Context struct {
-	mu      sync.Mutex
-	prevCtx context.Context
+	mu        sync.Mutex
+	prevCtx   context.Context
+	parent    *Context
+	startTime time.Time
 
-	Name          string
-	Parent        *Context
-	Children      map[string]*Context
-	EntryCount    int
-	ExitCount     int
+	// Name is the name of this timing context. If empty this is the non-reporting root of the context.
+	Name string
+
+	// Children has all the child timing contexts that have been started under this context.
+	Children map[string]*Context
+
+	// EntryCount is the number of times the timing context has been started.
+	EntryCount int
+
+	// ExistCount is the number of times the timing context has been completed.
+	ExitCount int
+
+	// TotalDuration is the amount of time this context has been started.
 	TotalDuration time.Duration
-	startTime     time.Time
 }
 
 type contextTiming int
@@ -96,11 +105,21 @@ func (c *Context) String() string {
 	return b.String()
 }
 
+// TotalChildDuration is a helper that computes the total time that the child timing contexts have spent.
+func (c *Context) TotalChildDuration() time.Duration {
+	d := time.Duration(0)
+	for _, child := range c.Children {
+		d += child.TotalDuration
+	}
+	return d
+}
+
 // Report generates a report of how much time was spent where.
 //
 // prefix is prepended to each line if you need something like indented output.
 // separator is a string that is used between levels of the timing tree.
-// onlyLeaf determines if only leaf nodes are reported on.
+// excludeChildren will subtract out of the duration of the children when reporting
+// the time.
 //
 // The reason onlyLeaf exists is if you want to represent the output in a chart, you
 // may have double-counting of times. If you have a structure like:
@@ -109,9 +128,9 @@ func (c *Context) String() string {
 // parent > child2 - 75ms
 // the children's time would be counted twice, once for itself, and once for the parent.
 // With onlyLeaf, the parent's line is not directly reported on.
-func (c *Context) Report(prefix, separator string, onlyLeaf bool) string {
+func (c *Context) Report(prefix, separator string, excludeChildren bool) string {
 	b := strings.Builder{}
-	c.dumpToBuilder(&b, prefix, separator, "", onlyLeaf)
+	c.dumpToBuilder(&b, prefix, separator, "", excludeChildren)
 	return b.String()
 }
 
@@ -121,10 +140,11 @@ func (c *Context) Report(prefix, separator string, onlyLeaf bool) string {
 // pass in "1000" to report by microseconds, "1000000" for milliseconds, etc.
 //
 // separator is a string that is used between levels of the timing tree.
-// onlyLeaf determines if only leaf nodes are reported on.
-func (c *Context) ReportMap(separator string, divisor float64, onlyLeaf bool) map[string]float64 {
+// excludeChildren will subtract out of the duration of the children when reporting
+// the time.
+func (c *Context) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
 	result := map[string]float64{}
-	c.dumpToMap(result, separator, "", divisor, onlyLeaf)
+	c.dumpToMap(result, separator, "", divisor, excludeChildren)
 	return result
 }
 
@@ -153,7 +173,7 @@ func (c *Context) getChild(name string) *Context {
 		return cc
 	} else {
 		cc := &Context{
-			Parent: c,
+			parent: c,
 			Name:   name,
 		}
 		c.Children[name] = cc

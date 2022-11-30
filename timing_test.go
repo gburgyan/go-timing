@@ -2,6 +2,7 @@ package timing
 
 import (
 	"context"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -49,30 +50,39 @@ func Test_Nesting(t *testing.T) {
 
 	rootCtx := Start(ctx, "root")
 
+	assert.Equal(t, time.Duration(0), rootCtx.TotalChildDuration())
+
 	child1Ctx := Start(rootCtx, "child 1")
 	child1Ctx.Complete()
+	child1Ctx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, 100*time.Millisecond, rootCtx.TotalChildDuration())
 
 	child2Ctx := Start(rootCtx, "child 2")
 	child2Ctx.Complete()
+	child2Ctx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, 200*time.Millisecond, rootCtx.TotalChildDuration())
 
 	rootCtx.Complete()
 
-	rootCtx.TotalDuration = 200 * time.Millisecond
-	child1Ctx.TotalDuration = 100 * time.Millisecond
-	child2Ctx.TotalDuration = 100 * time.Millisecond
+	rootCtx.TotalDuration = 210 * time.Millisecond
 
-	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms\n", rootCtx.String())
-	assert.Equal(t, "root.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", true))
-	assert.Equal(t, "root - 200ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", false))
+	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms\n", rootCtx.String())
+	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", true))
+	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", false))
+
+	fmt.Print(rootCtx)
 
 	m := rootCtx.ReportMap(" > ", 1000000, true)
-	assert.Len(t, m, 2)
+	assert.Len(t, m, 3)
+	assert.Equal(t, 10.0, m["root"])
 	assert.Equal(t, 100.0, m["root > child 1"])
 	assert.Equal(t, 100.0, m["root > child 2"])
 
 	m = rootCtx.ReportMap(".", 1000000, false)
 	assert.Len(t, m, 3)
-	assert.Equal(t, 200.0, m["root"])
+	assert.Equal(t, 210.0, m["root"])
 	assert.Equal(t, 100.0, m["root.child 1"])
 	assert.Equal(t, 100.0, m["root.child 2"])
 }
@@ -166,4 +176,6 @@ func Test_ReentrantPanics(t *testing.T) {
 	assert.Panics(t, func() {
 		childCtx.Complete()
 	})
+
+	fmt.Print()
 }
