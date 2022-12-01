@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -70,8 +71,12 @@ func Test_Nesting(t *testing.T) {
 	rootCtx.TotalDuration = 210 * time.Millisecond
 
 	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms\n", rootCtx.String())
-	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", true))
-	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", false))
+	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", nil, true))
+	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", nil, false))
+	custFmt := func(d time.Duration) string {
+		return strconv.Itoa(int(d.Milliseconds()))
+	}
+	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100\n", rootCtx.Report("", ".", custFmt, false))
 
 	fmt.Print(rootCtx)
 

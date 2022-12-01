@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
+
+// DurationFormatter is a function to format a reported duration in whatever way you need.
+type DurationFormatter func(d time.Duration) string
 
 // dumpToBuilder is an internal function that recursively outputs the contents of each location
 // to the string builder passed in.
-func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path string, excludeChildren bool) {
+func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
 	var childPrefix string
 	if c.Name == "" {
 		childPrefix = path
@@ -17,9 +21,16 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 		if excludeChildren {
 			reportDuration -= c.TotalChildDuration()
 		}
-		b.WriteString(fmt.Sprintf("%s%s%s", prefix, path, c.Name))
+		b.WriteString(prefix)
+		b.WriteString(path)
+		b.WriteString(c.Name)
+		b.WriteString(" - ")
 		if c.EntryCount > 0 {
-			b.WriteString(fmt.Sprintf(" - %s", reportDuration.Round(reportDuration)))
+			if durFmr == nil {
+				b.WriteString(reportDuration.String())
+			} else {
+				b.WriteString(durFmr(reportDuration))
+			}
 			if c.EntryCount != c.ExitCount {
 				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", c.EntryCount, c.ExitCount))
 			} else if c.EntryCount > 1 {
@@ -36,7 +47,7 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 	sort.Strings(keys)
 	for _, k := range keys {
 		l := c.Children[k]
-		l.dumpToBuilder(b, prefix, separator, childPrefix, excludeChildren)
+		l.dumpToBuilder(b, prefix, separator, childPrefix, durFmr, excludeChildren)
 	}
 }
 

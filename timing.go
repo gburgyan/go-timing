@@ -101,7 +101,7 @@ func (c *Context) Complete() {
 // String returns a multi-line report of what time was spent and where it was spent.
 func (c *Context) String() string {
 	b := strings.Builder{}
-	c.dumpToBuilder(&b, "", " > ", "", false)
+	c.dumpToBuilder(&b, "", " > ", "", nil, false)
 	return b.String()
 }
 
@@ -116,21 +116,26 @@ func (c *Context) TotalChildDuration() time.Duration {
 
 // Report generates a report of how much time was spent where.
 //
-// prefix is prepended to each line if you need something like indented output.
-// separator is a string that is used between levels of the timing tree.
+//   - prefix is prepended to each line if you need something like indented output.
+//   - separator is a string that is used between levels of the timing tree.
+//   - durFmt is a function to format (round, display, etc.) the duration to report in whatever
+//     way is suitable for your needs.
+//
 // excludeChildren will subtract out of the duration of the children when reporting
 // the time.
 //
 // The reason onlyLeaf exists is if you want to represent the output in a chart, you
 // may have double-counting of times. If you have a structure like:
-// parent - 100ms
-// parent > child1 - 25ms
-// parent > child2 - 75ms
+//
+//	parent - 100ms
+//	parent > child1 - 25ms
+//	parent > child2 - 75ms
+//
 // the children's time would be counted twice, once for itself, and once for the parent.
 // With onlyLeaf, the parent's line is not directly reported on.
-func (c *Context) Report(prefix, separator string, excludeChildren bool) string {
+func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, excludeChildren bool) string {
 	b := strings.Builder{}
-	c.dumpToBuilder(&b, prefix, separator, "", excludeChildren)
+	c.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
 	return b.String()
 }
 
