@@ -25,7 +25,7 @@ func Test_TrivialRoot(t *testing.T) {
 
 	child.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "child - 100ms\n", tCtx.String())
+	assert.Equal(t, "child - 100ms", tCtx.String())
 	m := tCtx.ReportMap(" > ", 1000000, false)
 	assert.Len(t, m, 1)
 	assert.Equal(t, 100.0, m["child"])
@@ -44,7 +44,7 @@ func Test_NonTrivialRoot(t *testing.T) {
 
 	tCtx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root - 100ms\n", tCtx.String())
+	assert.Equal(t, "root - 100ms", tCtx.String())
 }
 
 func Test_Nesting(t *testing.T) {
@@ -70,15 +70,15 @@ func Test_Nesting(t *testing.T) {
 
 	rootCtx.TotalDuration = 210 * time.Millisecond
 
-	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms\n", rootCtx.String())
-	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", nil, true))
-	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms\n", rootCtx.Report("", ".", nil, false))
+	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms", rootCtx.String())
+	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report("", ".", nil, true))
+	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report("", ".", nil, false))
 	custFmt := func(d time.Duration) string {
 		return strconv.Itoa(int(d.Milliseconds()))
 	}
-	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100\n", rootCtx.Report("", ".", custFmt, false))
+	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100", rootCtx.Report("", ".", custFmt, false))
 
-	fmt.Print(rootCtx)
+	fmt.Println(rootCtx)
 
 	m := rootCtx.ReportMap(" > ", 1000000, true)
 	assert.Len(t, m, 3)
@@ -117,7 +117,7 @@ func Test_ContextBehavior(t *testing.T) {
 	assert.Equal(t, o1, child2Ctx.Value(1))
 	assert.Equal(t, o2, child2Ctx.Value(2))
 
-	assert.Equal(t, "root - 0s entries: 1 exits: 0\nroot > child 1 - 0s entries: 1 exits: 0\n", rootCtx.String())
+	assert.Equal(t, "root - 0s entries: 1 exits: 0\nroot > child 1 - 0s entries: 1 exits: 0", rootCtx.String())
 }
 
 func Test_StartPanics(t *testing.T) {
@@ -169,7 +169,7 @@ func Test_MultiStart(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms\n", rootCtx.String())
+	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms", rootCtx.String())
 }
 
 func Test_ReentrantPanics(t *testing.T) {

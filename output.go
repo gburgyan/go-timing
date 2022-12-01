@@ -17,6 +17,9 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 	if c.Name == "" {
 		childPrefix = path
 	} else {
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
 		reportDuration := c.TotalDuration
 		if excludeChildren {
 			reportDuration -= c.TotalChildDuration()
@@ -36,7 +39,6 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 			} else if c.EntryCount > 1 {
 				b.WriteString(fmt.Sprintf(" calls: %d", c.EntryCount))
 			}
-			b.WriteString("\n")
 		}
 		childPrefix = path + c.Name + separator
 	}
