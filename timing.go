@@ -120,11 +120,10 @@ func (c *Context) TotalChildDuration() time.Duration {
 //   - separator is a string that is used between levels of the timing tree.
 //   - durFmt is a function to format (round, display, etc.) the duration to report in whatever
 //     way is suitable for your needs.
+//   - excludeChildren will subtract out of the duration of the children when reporting
+//     the time.
 //
-// excludeChildren will subtract out of the duration of the children when reporting
-// the time.
-//
-// The reason onlyLeaf exists is if you want to represent the output in a chart, you
+// The reason excludeChildren exists is if you want to represent the output in a chart, you
 // may have double-counting of times. If you have a structure like:
 //
 //	parent - 100ms
@@ -144,9 +143,9 @@ func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, exc
 // native nanoseconds that the Duration keeps track of. This may be annoying to read, so you can
 // pass in "1000" to report by microseconds, "1000000" for milliseconds, etc.
 //
-// separator is a string that is used between levels of the timing tree.
-// excludeChildren will subtract out of the duration of the children when reporting
-// the time.
+//   - separator is a string that is used between levels of the timing tree.
+//   - excludeChildren will subtract out of the duration of the children when reporting
+//     the time.
 func (c *Context) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
 	result := map[string]float64{}
 	c.dumpToMap(result, separator, "", divisor, excludeChildren)
