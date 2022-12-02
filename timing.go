@@ -33,10 +33,13 @@ type contextTiming int
 
 const contextTimingKey contextTiming = 0
 
-// ForName returns an un-started Context. This is generally not used by client code, but
+// forName returns an un-started Context. This is generally not used by client code, but
 // may be useful for a context that needs to be repeatedly started and completed for some
 // reason.
-func ForName(ctx context.Context, name string) *Context {
+//
+// Note that the context returned, while is a `context.Context`, is *not* linked to the
+// context stack. This is not in any way a usable context until it is started.
+func forName(ctx context.Context, name string) *Context {
 	if name == "" {
 		panic("non-root timings must be named")
 	}
@@ -57,7 +60,7 @@ func ForName(ctx context.Context, name string) *Context {
 // Start begins a timing context and relates it to a preceding timing context if it exists.
 // If a previous context does not exist then this starts a new named root timing context.
 func Start(ctx context.Context, name string) *Context {
-	c := ForName(ctx, name)
+	c := forName(ctx, name)
 	c.Start(ctx)
 	return c
 }
@@ -71,6 +74,20 @@ func Root(ctx context.Context) *Context {
 	c := &Context{
 		prevCtx: ctx,
 	}
+	return c
+}
+
+// StartNew creates a new named timing context. Unlike Start, this will create a new unrelated timing
+// context regardless if there is a timing context already on the context stack. This is useful
+// for any long-running processes that finish after the Goroutine that started them have finished.
+func StartNew(ctx context.Context, name string) *Context {
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	c := &Context{
+		Name: name,
+	}
+	c.Start(ctx)
 	return c
 }
 
