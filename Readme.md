@@ -16,27 +16,27 @@ The simplest use case of this is just start up a timing context and pass that co
 
 ```go
 func ProcessRequest(ctx context.Context) result {
-tCtx := timing.Start(ctx, "ProcessRequest")
+    tCtx := timing.Start(ctx, "ProcessRequest")
 
-someFunction(tCtx)
-otherFunction(tCtx)
-// other processing
-
-tCtx.Complete()
-
-fmt.Print(tCtx)
+    someFunction(tCtx)
+    otherFunction(tCtx)
+    // other processing
+    
+    tCtx.Complete()
+    
+    fmt.Print(tCtx)
 }
 
 func someFunction(ctx context.Context) {
-tCtx := timing.Start(ctx, "someFunction")
-defer tCtx.Complete()
-// Do work
+    tCtx := timing.Start(ctx, "someFunction")
+    defer tCtx.Complete()
+    // Do work
 }
 
 func someFunction(ctx context.Context) {
-tCtx := timing.Start(ctx, "otherFunction")
-defer tCtx.Complete()
-// Do work
+    tCtx := timing.Start(ctx, "otherFunction")
+    defer tCtx.Complete()
+    // Do work
 }
 ```
 
