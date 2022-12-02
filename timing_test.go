@@ -130,7 +130,9 @@ func Test_StartPanics(t *testing.T) {
 	assert.Panics(t, func() {
 		Start(context.Background(), "")
 	})
-
+	assert.Panics(t, func() {
+		StartNew(nil, "panic")
+	})
 }
 
 func Test_ParentTimingPanic(t *testing.T) {
