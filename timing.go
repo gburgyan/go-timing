@@ -33,34 +33,10 @@ type contextTiming int
 
 const contextTimingKey contextTiming = 0
 
-// forName returns an un-started Context. This is generally not used by client code, but
-// may be useful for a context that needs to be repeatedly started and completed for some
-// reason.
-//
-// Note that the context returned, while is a `context.Context`, is *not* linked to the
-// context stack. This is not in any way a usable context until it is started.
-func forName(ctx context.Context, name string) *Context {
-	if name == "" {
-		panic("non-root timings must be named")
-	}
-	if ctx == nil {
-		panic("context must be defined")
-	}
-	p := findParentTiming(ctx)
-	if p == nil {
-		c := &Context{
-			Name: name,
-		}
-		return c
-	} else {
-		return p.getChild(name)
-	}
-}
-
 // Start begins a timing context and relates it to a preceding timing context if it exists.
 // If a previous context does not exist then this starts a new named root timing context.
 func Start(ctx context.Context, name string) *Context {
-	c := forName(ctx, name)
+	c := ForName(ctx, name)
 	c.Start(ctx)
 	return c
 }
@@ -167,6 +143,30 @@ func (c *Context) ReportMap(separator string, divisor float64, excludeChildren b
 	result := map[string]float64{}
 	c.dumpToMap(result, separator, "", divisor, excludeChildren)
 	return result
+}
+
+// ForName returns an un-started Context. This is generally not used by client code, but
+// may be useful for a context that needs to be repeatedly started and completed for some
+// reason.
+//
+// Warning: the timing context returned, while it implements `context.Context`, is *not* linked to the
+// context stack. This is not in any way a usable context until it is started.
+func ForName(ctx context.Context, name string) *Context {
+	if name == "" {
+		panic("non-root timings must be named")
+	}
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	p := findParentTiming(ctx)
+	if p == nil {
+		c := &Context{
+			Name: name,
+		}
+		return c
+	} else {
+		return p.getChild(name)
+	}
 }
 
 // findParentTiming is a global that finds most recent timing context on the context stack.

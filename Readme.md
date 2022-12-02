@@ -16,31 +16,35 @@ The simplest use case of this is just start up a timing context and pass that co
 
 ```go
 func ProcessRequest(ctx context.Context) result {
-	tCtx := timing.Start(ctx, "ProcessRequest")
-	
-	someFunction(tCtx)
-	otherFunction(tCtx)
-	// other processing
-	
-	tCtx.Complete()
-	
-	fmt.Print(tCtx)
+tCtx := timing.Start(ctx, "ProcessRequest")
+
+someFunction(tCtx)
+otherFunction(tCtx)
+// other processing
+
+tCtx.Complete()
+
+fmt.Print(tCtx)
 }
 
 func someFunction(ctx context.Context) {
-	tCtx := timing.Start(ctx, "someFunction")
-	defer tCtx.Complete()
-	// Do work
+tCtx := timing.Start(ctx, "someFunction")
+defer tCtx.Complete()
+// Do work
 }
 
 func someFunction(ctx context.Context) {
-    tCtx := timing.Start(ctx, "otherFunction")
-    defer tCtx.Complete()
-    // Do work
+tCtx := timing.Start(ctx, "otherFunction")
+defer tCtx.Complete()
+// Do work
 }
 ```
 
 The returned `tCtx` is a context object like any other. This one has the feature that if can track timings. Additionally, if when starting a timing context, there exists a timnig context on the timing stack, the new timing context is added as a child of the parent.
+
+# Reporting
+
+## String()
 
 Since we keep track of the parent-child relationships on the timing, the results can be shown in a tree-like format:
 
@@ -50,13 +54,22 @@ ProcessRequest > someFunction - 120ms
 ProcessRequest > otherFunction - 185ms
 ```
 
+## Report
+
 If you need more control over the output, you can call `Report` on the timing context. This allows you to apply some formatting to the output:
 
 * A prefix that is written out before each line (default is nothing)
 * The separator that is printed between levels (default is " > ")
+* A duration formatter (`nil` invokes the default `duration.String()` to format)
 * If child times are to be excluded from the parent's time
 
 The last option is important if you want to make a chart or graph of the times. Since time can be reported at multiple levels, it can be counted multiple times. The sum of the above example is 625ms, despite the fact that the run time is only 320ms. This would be misleading on something like a pie chart. By requesting that child times should be excluded, you could get:
+
+```go
+tCtx.Report("", " > ", nil, true)
+```
+
+Produces:
 
 ```text
 ProcessRequest - 15ms
@@ -65,6 +78,24 @@ ProcessRequest > otherFunction - 185ms
 ```
 
 This shows that outside of the calls to the children, `ProcessRequest` consumed 15ms on its own.
+
+### Duration formatting
+
+The default Golang `duration` formatting is great for human readability, but it's not as good for machine processing since it involves text parsing of the units. If you need to get something other than the provided functionality, you can pass in a function that takes a duration and returns a string. This allows you to do any transformations, rounding, scaling or anything else.
+
+Originally this was implemented as an explosion of parameters to the function. This wound up being complex and still wouldn't allow for as much flexibility as desired. It was decided that delegating to a function that can do whatever the caller needs is the best solution.
+
+## ReportMap
+
+This is similar to, but simpler than, the text-based `Report` function. This formats the report into an even simpler `map[string]float64` of just the durations for the various timing contexts. This is intended to be easy to consume by a system like Splunk for reporting purposes.
+
+## JSON
+
+The timing context objects are decorated with JSON tags to allow serialization to JSON.
+
+## Custom reporting
+
+All the needed fields are public and easily navigable so if there is a need to output the timing in any other way, this should be easy to do.
 
 # Thread Safety
 
