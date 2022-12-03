@@ -125,23 +125,23 @@ Consider the following:
 
 ```go
 func process(ctx context.Context, count int) {
-	tCtx := timing.Start(ctx, "process")
-	tCtx.Async = true // The important part for this example
-	results := make(chan result, 0)
-	for i := 0; i < count; i++ {
-	    go func(i int) {
-			cCtx := timing.Start(tCtx, fmt.Sprintf("child-%d", i))
-			defer cCtx.Complete()
-			// do work
-			results <- result
+    tCtx := timing.Start(ctx, "process")
+    tCtx.Async = true // The important part for this example
+    results := make(chan result, 0)
+    for i := 0; i < count; i++ {
+        go func(i int) {
+            cCtx := timing.Start(tCtx, fmt.Sprintf("child-%d", i))
+            defer cCtx.Complete()
+            // do work
+            results <- result
         }	
     }
-	for i := 0; i < count; i++ {
-	    result := <-results
-		fmt.Println(result)
+    for i := 0; i < count; i++ {
+        result := <-results
+        fmt.Println(result)
     }
-	tCtx.Complete()
-	fmt.Println(tCtx)
+    tCtx.Complete()
+    fmt.Println(tCtx)
 }
 ```
 
