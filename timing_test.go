@@ -195,6 +195,29 @@ func Test_MultiRoot(t *testing.T) {
 	assert.Equal(t, "goroutine - 100ms", root2Ctx.String())
 }
 
+func Test_Async(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx := Start(ctx, "root")
+	rootCtx.Async = true
+
+	child1Ctx := Start(rootCtx, "child 1")
+	child1Ctx.Complete()
+
+	child1Ctx = Start(rootCtx, "child 1")
+	child1Ctx.Complete()
+
+	child2Ctx := Start(rootCtx, "child 2")
+	child2Ctx.Complete()
+
+	rootCtx.Complete()
+	rootCtx.TotalDuration = 110 * time.Millisecond
+	child1Ctx.TotalDuration = 100 * time.Millisecond
+	child2Ctx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, "root * - 110ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms", rootCtx.Report("", " > ", nil, true))
+}
+
 func Test_ReentrantPanics(t *testing.T) {
 	ctx := context.Background()
 

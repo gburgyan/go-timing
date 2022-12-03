@@ -21,12 +21,15 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 			b.WriteString("\n")
 		}
 		reportDuration := c.TotalDuration
-		if excludeChildren {
+		if excludeChildren && !c.Async {
 			reportDuration -= c.TotalChildDuration()
 		}
 		b.WriteString(prefix)
 		b.WriteString(path)
 		b.WriteString(c.Name)
+		if c.Async {
+			b.WriteString(" *")
+		}
 		b.WriteString(" - ")
 		if c.EntryCount > 0 {
 			if durFmr == nil {

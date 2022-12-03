@@ -27,6 +27,11 @@ type Context struct {
 
 	// TotalDuration is the amount of time this context has been started.
 	TotalDuration time.Duration `json:"total-duration,omitempty"`
+
+	// Async, if set, causes the children's time to never be excluded. This is used in cases where
+	// you have either overlapping timing contexts. This is normally caused when multiple Goroutines
+	// are started in parallel in the same timing context.
+	Async bool
 }
 
 type contextTiming int

@@ -106,3 +106,34 @@ While the normal runtime is designed to be thread safe, the final reporting proc
 Logging times for processes that start on the main Goroutine, but end afterward is not supported. If you start a long-running process but log the timing report prior to its completion, you can have no idea how long that took because it's not completed yet. Since this is a logically inconsistent way of running, this is not supported.
 
 If you need timing logs for a long-running process, the correct approach is to start a new `Root` timing context. Since that timing context is unrelated to the original one, everything is fine. When the long-running process has concluded (after the original Goroutine has long since finished), the long-running Goroutine can log its timing.
+
+# Special Cases
+
+## Repeated starts and completes
+
+If you need to repeatedly start and complete a timing context, there is a way to quickly and easily do that. If you `timing.Start` a new context and `Complete()` it, you can call the context's `Start` again.
+
+Another way to do this is to call `timing.ForName()` which will return an un-started timing context. You can then call `Start()` and `Complete()` repeatedly.
+
+This can be useful in cases where you may be accessing some resource, like saving to a file, many times and you only want to count the time for that.
+
+## Goroutines
+
+If you have a scenario where you start a number of threads, each of which runs to completion, 
+
+## Overlapping timing contexts
+
+There is nothing preventing overlapping timing contexts:
+
+```go
+root := timing.Start(ctx, "root")
+ta := timing.Start(root, "ProcessA")
+// stuff
+tb := timing.Start(root, "ProcessB")
+// stuff
+ta.Complete()
+// stuff
+tb.Complete()
+```
+
+The children will get reported fine. Be aware, however, that if you report on this with the exclude children flag, this can lead to a time, potentially negative, being reported on. The way to address this is to add `root.Async = true` after the timing context is started. This will prevent the children from being subtracted out since they are, essentially, running out of sync with each other.
