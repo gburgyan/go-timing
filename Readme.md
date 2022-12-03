@@ -119,7 +119,46 @@ This can be useful in cases where you may be accessing some resource, like savin
 
 ## Goroutines
 
-If you have a scenario where you start a number of threads, each of which runs to completion, 
+If you have a scenario where you start a number of threads, each of which runs to completion, the way to handle this is to mark the parent of the timing context as `tCtx.Async = true`. This will flag that context as containing asynchronous child calls. Even if you exclude children from reports, children of async contexts will not be subtracted.
+
+Consider the following:
+
+```go
+func process(ctx context.Context, count int) {
+	tCtx := timing.Start(ctx, "process")
+	tCtx.Async = true // The important part for this example
+	results := make(chan result, 0)
+	for i := 0; i < count; i++ {
+	    go func(i int) {
+			cCtx := timing.Start(tCtx, fmt.Sprintf("child-%d", i))
+			defer cCtx.Complete()
+			// do work
+			results <- result
+        }	
+    }
+	for i := 0; i < count; i++ {
+	    result := <-results
+		fmt.Println(result)
+    }
+	tCtx.Complete()
+	fmt.Println(tCtx)
+}
+```
+
+Since there will be multiple child Goroutines each taking time, the sum of the children's time will be far greater than the time the processing took. If you were subtracting the children's time, the parent's time would be negative, which would by lying.
+
+The result of this would look like:
+
+```text
+[process] - 250ms
+[process] > child-0 - 200ms
+[process] > child-1 - 180ms
+[process] > child-2 - 220ms
+[process] > child-3 - 150ms
+[process] > child-4 - 240ms
+```
+
+The async timing context is represented by having the name inside square brackets.
 
 ## Overlapping timing contexts
 

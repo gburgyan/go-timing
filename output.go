@@ -26,10 +26,13 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 		}
 		b.WriteString(prefix)
 		b.WriteString(path)
-		b.WriteString(c.Name)
+		var effectiveName string
 		if c.Async {
-			b.WriteString(" *")
+			effectiveName = "[" + c.Name + "]"
+		} else {
+			effectiveName = c.Name
 		}
+		b.WriteString(effectiveName)
 		b.WriteString(" - ")
 		if c.EntryCount > 0 {
 			if durFmr == nil {
@@ -43,7 +46,7 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 				b.WriteString(fmt.Sprintf(" calls: %d", c.EntryCount))
 			}
 		}
-		childPrefix = path + c.Name + separator
+		childPrefix = path + effectiveName + separator
 	}
 	var keys []string
 	for k := range c.Children {

@@ -215,7 +215,7 @@ func Test_Async(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root * - 110ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms", rootCtx.Report("", " > ", nil, true))
+	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2\n[root] > child 2 - 100ms", rootCtx.Report("", " > ", nil, true))
 }
 
 func Test_ReentrantPanics(t *testing.T) {
