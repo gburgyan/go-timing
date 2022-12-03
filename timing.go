@@ -31,7 +31,7 @@ type Context struct {
 	// Async, if set, causes the children's time to never be excluded. This is used in cases where
 	// you have either overlapping timing contexts. This is normally caused when multiple Goroutines
 	// are started in parallel in the same timing context.
-	Async bool
+	Async bool `json:",omitempty"`
 }
 
 type contextTiming int
