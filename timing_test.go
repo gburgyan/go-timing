@@ -131,7 +131,7 @@ func Test_StartPanics(t *testing.T) {
 		Start(context.Background(), "")
 	})
 	assert.Panics(t, func() {
-		StartNew(nil, "panic")
+		StartRoot(nil, "panic")
 	})
 }
 
@@ -181,7 +181,7 @@ func Test_MultiRoot(t *testing.T) {
 
 	child1Ctx := Start(rootCtx, "child 1")
 
-	root2Ctx := StartNew(child1Ctx, "goroutine")
+	root2Ctx := StartRoot(child1Ctx, "goroutine")
 	root2Ctx.Complete()
 	root2Ctx.TotalDuration = 100 * time.Millisecond
 

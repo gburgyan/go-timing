@@ -58,10 +58,10 @@ func Root(ctx context.Context) *Context {
 	return c
 }
 
-// StartNew creates a new named timing context. Unlike Start, this will create a new unrelated timing
+// StartRoot creates a new named timing context. Unlike Start, this will create a new unrelated timing
 // context regardless if there is a timing context already on the context stack. This is useful
 // for any long-running processes that finish after the Goroutine that started them have finished.
-func StartNew(ctx context.Context, name string) *Context {
+func StartRoot(ctx context.Context, name string) *Context {
 	if ctx == nil {
 		panic("context must be defined")
 	}
@@ -71,6 +71,28 @@ func StartNew(ctx context.Context, name string) *Context {
 	}
 	c.Start()
 	return c
+}
+
+// ForName returns an un-started Context. This is generally not used by client code, but
+// may be useful for a context that needs to be repeatedly started and completed for some
+// reason.
+func ForName(ctx context.Context, name string) *Context {
+	if name == "" {
+		panic("non-root timings must be named")
+	}
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	p := findParentTiming(ctx)
+	if p == nil {
+		c := &Context{
+			prevCtx: ctx,
+			Name:    name,
+		}
+		return c
+	} else {
+		return p.getChild(ctx, name)
+	}
 }
 
 // Start starts the timer on a given timing context. A timer can only be started if it is not
@@ -147,28 +169,6 @@ func (c *Context) ReportMap(separator string, divisor float64, excludeChildren b
 	result := map[string]float64{}
 	c.dumpToMap(result, separator, "", divisor, excludeChildren)
 	return result
-}
-
-// ForName returns an un-started Context. This is generally not used by client code, but
-// may be useful for a context that needs to be repeatedly started and completed for some
-// reason.
-func ForName(ctx context.Context, name string) *Context {
-	if name == "" {
-		panic("non-root timings must be named")
-	}
-	if ctx == nil {
-		panic("context must be defined")
-	}
-	p := findParentTiming(ctx)
-	if p == nil {
-		c := &Context{
-			prevCtx: ctx,
-			Name:    name,
-		}
-		return c
-	} else {
-		return p.getChild(ctx, name)
-	}
 }
 
 // findParentTiming is a global that finds most recent timing context on the context stack.
