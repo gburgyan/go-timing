@@ -8,9 +8,13 @@ import (
 )
 
 type Context struct {
-	mu        sync.Mutex
-	prevCtx   context.Context
-	parent    *Context
+	mu       sync.Mutex
+	prevCtx  context.Context
+	parent   *Context
+	location *TimingLocation
+}
+
+type TimingLocation struct {
 	startTime time.Time
 
 	// Name is the name of this timing context. If empty this is the non-reporting root of the context.
@@ -67,7 +71,9 @@ func StartRoot(ctx context.Context, name string) *Context {
 	}
 	c := &Context{
 		prevCtx: ctx,
-		Name:    name,
+		location: &TimingLocation{
+			Name: name,
+		},
 	}
 	c.Start()
 	return c
@@ -87,7 +93,9 @@ func ForName(ctx context.Context, name string) *Context {
 	if p == nil {
 		c := &Context{
 			prevCtx: ctx,
-			Name:    name,
+			location: &TimingLocation{
+				Name: name,
+			},
 		}
 		return c
 	} else {
@@ -98,23 +106,23 @@ func ForName(ctx context.Context, name string) *Context {
 // Start starts the timer on a given timing context. A timer can only be started if it is not
 // already started.
 func (c *Context) Start() {
-	if !c.startTime.IsZero() {
+	if !c.location.startTime.IsZero() {
 		panic("reentrant timing not supported")
 	}
-	c.EntryCount++
-	c.startTime = time.Now()
+	c.location.EntryCount++
+	c.location.startTime = time.Now()
 }
 
 // Complete marks a timing context as completed and adds the time to the total duration for
 // that timing context.
 func (c *Context) Complete() {
-	d := time.Since(c.startTime)
-	if c.startTime.IsZero() {
+	d := time.Since(c.location.startTime)
+	if c.location.startTime.IsZero() {
 		panic("timing context not started")
 	}
-	c.startTime = time.Time{} // Zero it out
-	c.ExitCount++
-	c.TotalDuration += d
+	c.location.startTime = time.Time{} // Zero it out
+	c.location.ExitCount++
+	c.location.TotalDuration += d
 }
 
 // String returns a multi-line report of what time was spent and where it was spent.
@@ -127,8 +135,8 @@ func (c *Context) String() string {
 // TotalChildDuration is a helper that computes the total time that the child timing contexts have spent.
 func (c *Context) TotalChildDuration() time.Duration {
 	d := time.Duration(0)
-	for _, child := range c.Children {
-		d += child.TotalDuration
+	for _, child := range c.location.Children {
+		d += child.location.TotalDuration
 	}
 	return d
 }
@@ -189,18 +197,22 @@ func (c *Context) getChild(ctx context.Context, name string) *Context {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.Children == nil {
-		c.Children = map[string]*Context{}
+	l := c.location
+
+	if l.Children == nil {
+		l.Children = map[string]*Context{}
 	}
-	if cc, ok := c.Children[name]; ok {
+	if cc, ok := l.Children[name]; ok {
 		return cc
 	} else {
 		cc := &Context{
 			prevCtx: ctx,
 			parent:  c,
-			Name:    name,
+			location: &TimingLocation{
+				Name: name,
+			},
 		}
-		c.Children[name] = cc
+		l.Children[name] = cc
 		return cc
 	}
 }
