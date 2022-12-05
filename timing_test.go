@@ -15,15 +15,15 @@ func Test_TrivialRoot(t *testing.T) {
 
 	tCtx := Root(ctx)
 
-	assert.Equal(t, 0, tCtx.EntryCount)
-	assert.Equal(t, 0, tCtx.ExitCount)
+	assert.Equal(t, 0, tCtx.location.EntryCount)
+	assert.Equal(t, 0, tCtx.location.ExitCount)
 
 	assert.Equal(t, "", tCtx.String())
 
 	child := Start(tCtx, "child")
 	child.Complete()
 
-	child.TotalDuration = 100 * time.Millisecond
+	child.location.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "child - 100ms", tCtx.String())
 	m := tCtx.ReportMap(" > ", 1000000, false)
@@ -38,11 +38,11 @@ func Test_NonTrivialRoot(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	tCtx.Complete()
 
-	assert.Equal(t, 1, tCtx.EntryCount)
-	assert.Equal(t, 1, tCtx.ExitCount)
-	assert.Greater(t, tCtx.TotalDuration, time.Duration(0))
+	assert.Equal(t, 1, tCtx.location.EntryCount)
+	assert.Equal(t, 1, tCtx.location.ExitCount)
+	assert.Greater(t, tCtx.location.TotalDuration, time.Duration(0))
 
-	tCtx.TotalDuration = 100 * time.Millisecond
+	tCtx.location.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "root - 100ms", tCtx.String())
 }
@@ -52,23 +52,23 @@ func Test_Nesting(t *testing.T) {
 
 	rootCtx := Start(ctx, "root")
 
-	assert.Equal(t, time.Duration(0), rootCtx.TotalChildDuration())
+	assert.Equal(t, time.Duration(0), rootCtx.location.TotalChildDuration())
 
 	child1Ctx := Start(rootCtx, "child 1")
 	child1Ctx.Complete()
-	child1Ctx.TotalDuration = 100 * time.Millisecond
+	child1Ctx.location.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, 100*time.Millisecond, rootCtx.TotalChildDuration())
+	assert.Equal(t, 100*time.Millisecond, rootCtx.location.TotalChildDuration())
 
 	child2Ctx := Start(rootCtx, "child 2")
 	child2Ctx.Complete()
-	child2Ctx.TotalDuration = 100 * time.Millisecond
+	child2Ctx.location.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, 200*time.Millisecond, rootCtx.TotalChildDuration())
+	assert.Equal(t, 200*time.Millisecond, rootCtx.location.TotalChildDuration())
 
 	rootCtx.Complete()
 
-	rootCtx.TotalDuration = 210 * time.Millisecond
+	rootCtx.location.TotalDuration = 210 * time.Millisecond
 
 	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms", rootCtx.String())
 	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report("", ".", nil, true))
@@ -92,7 +92,7 @@ func Test_Nesting(t *testing.T) {
 	assert.Equal(t, 100.0, m["root.child 1"])
 	assert.Equal(t, 100.0, m["root.child 2"])
 
-	js, err := json.Marshal(rootCtx)
+	js, err := json.Marshal(rootCtx.location)
 	assert.NoError(t, err)
 	assert.Equal(t, "{\"name\":\"root\",\"children\":{\"child 1\":{\"name\":\"child 1\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000},\"child 2\":{\"name\":\"child 2\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000}},\"entry-count\":1,\"exit-count\":1,\"total-duration\":210000000}", string(js))
 }
@@ -167,9 +167,9 @@ func Test_MultiStart(t *testing.T) {
 	child2Ctx.Complete()
 
 	rootCtx.Complete()
-	rootCtx.TotalDuration = 200 * time.Millisecond
-	child1Ctx.TotalDuration = 100 * time.Millisecond
-	child2Ctx.TotalDuration = 100 * time.Millisecond
+	rootCtx.location.TotalDuration = 200 * time.Millisecond
+	child1Ctx.location.TotalDuration = 100 * time.Millisecond
+	child2Ctx.location.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms", rootCtx.String())
 }
@@ -183,13 +183,13 @@ func Test_MultiRoot(t *testing.T) {
 
 	root2Ctx := StartRoot(child1Ctx, "goroutine")
 	root2Ctx.Complete()
-	root2Ctx.TotalDuration = 100 * time.Millisecond
+	root2Ctx.location.TotalDuration = 100 * time.Millisecond
 
 	child1Ctx.Complete()
 
 	rootCtx.Complete()
-	rootCtx.TotalDuration = 200 * time.Millisecond
-	child1Ctx.TotalDuration = 100 * time.Millisecond
+	rootCtx.location.TotalDuration = 200 * time.Millisecond
+	child1Ctx.location.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms", rootCtx.String())
 	assert.Equal(t, "goroutine - 100ms", root2Ctx.String())
@@ -199,7 +199,7 @@ func Test_Async(t *testing.T) {
 	ctx := context.Background()
 
 	rootCtx := Start(ctx, "root")
-	rootCtx.Async = true
+	rootCtx.location.Async = true
 
 	child1Ctx := Start(rootCtx, "child 1")
 	child1Ctx.Complete()
@@ -211,9 +211,9 @@ func Test_Async(t *testing.T) {
 	child2Ctx.Complete()
 
 	rootCtx.Complete()
-	rootCtx.TotalDuration = 110 * time.Millisecond
-	child1Ctx.TotalDuration = 100 * time.Millisecond
-	child2Ctx.TotalDuration = 100 * time.Millisecond
+	rootCtx.location.TotalDuration = 110 * time.Millisecond
+	child1Ctx.location.TotalDuration = 100 * time.Millisecond
+	child2Ctx.location.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2\n[root] > child 2 - 100ms", rootCtx.Report("", " > ", nil, true))
 }

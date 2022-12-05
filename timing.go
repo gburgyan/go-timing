@@ -10,7 +10,6 @@ import (
 type Context struct {
 	mu       sync.Mutex
 	prevCtx  context.Context
-	parent   *Context
 	location *TimingLocation
 }
 
@@ -21,7 +20,7 @@ type TimingLocation struct {
 	Name string `json:"name,omitempty"`
 
 	// Children has all the child timing contexts that have been started under this context.
-	Children map[string]*Context `json:"children,omitempty"`
+	Children map[string]*TimingLocation `json:"children,omitempty"`
 
 	// EntryCount is the number of times the timing context has been started.
 	EntryCount int `json:"entry-count,omitempty"`
@@ -57,7 +56,8 @@ func Root(ctx context.Context) *Context {
 		panic("context must be defined")
 	}
 	c := &Context{
-		prevCtx: ctx,
+		prevCtx:  ctx,
+		location: &TimingLocation{},
 	}
 	return c
 }
@@ -128,15 +128,15 @@ func (c *Context) Complete() {
 // String returns a multi-line report of what time was spent and where it was spent.
 func (c *Context) String() string {
 	b := strings.Builder{}
-	c.dumpToBuilder(&b, "", " > ", "", nil, false)
+	c.location.dumpToBuilder(&b, "", " > ", "", nil, false)
 	return b.String()
 }
 
 // TotalChildDuration is a helper that computes the total time that the child timing contexts have spent.
-func (c *Context) TotalChildDuration() time.Duration {
+func (l *TimingLocation) TotalChildDuration() time.Duration {
 	d := time.Duration(0)
-	for _, child := range c.location.Children {
-		d += child.location.TotalDuration
+	for _, child := range l.Children {
+		d += child.TotalDuration
 	}
 	return d
 }
@@ -161,7 +161,7 @@ func (c *Context) TotalChildDuration() time.Duration {
 // With onlyLeaf, the parent's line is not directly reported on.
 func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, excludeChildren bool) string {
 	b := strings.Builder{}
-	c.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
+	c.location.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
 	return b.String()
 }
 
@@ -175,7 +175,7 @@ func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, exc
 //     the time.
 func (c *Context) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
 	result := map[string]float64{}
-	c.dumpToMap(result, separator, "", divisor, excludeChildren)
+	c.location.dumpToMap(result, separator, "", divisor, excludeChildren)
 	return result
 }
 
@@ -200,19 +200,22 @@ func (c *Context) getChild(ctx context.Context, name string) *Context {
 	l := c.location
 
 	if l.Children == nil {
-		l.Children = map[string]*Context{}
+		l.Children = map[string]*TimingLocation{}
 	}
-	if cc, ok := l.Children[name]; ok {
-		return cc
-	} else {
-		cc := &Context{
-			prevCtx: ctx,
-			parent:  c,
-			location: &TimingLocation{
-				Name: name,
-			},
+	if cl, ok := l.Children[name]; ok {
+		return &Context{
+			prevCtx:  ctx,
+			location: cl,
 		}
-		l.Children[name] = cc
+	} else {
+		cl := &TimingLocation{
+			Name: name,
+		}
+		cc := &Context{
+			prevCtx:  ctx,
+			location: cl,
+		}
+		l.Children[name] = cl
 		return cc
 	}
 }

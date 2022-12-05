@@ -12,7 +12,7 @@ type DurationFormatter func(d time.Duration) string
 
 // dumpToBuilder is an internal function that recursively outputs the contents of each location
 // to the string builder passed in.
-func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
+func (c *TimingLocation) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
 	var childPrefix string
 	if c.Name == "" {
 		childPrefix = path
@@ -61,7 +61,7 @@ func (c *Context) dumpToBuilder(b *strings.Builder, prefix, separator, path stri
 
 // dumpToMap is an internal function that recursively outputs the contents of each location
 // to the map builder passed in.
-func (c *Context) dumpToMap(m map[string]float64, separator, path string, divisor float64, excludeChildren bool) {
+func (c *TimingLocation) dumpToMap(m map[string]float64, separator, path string, divisor float64, excludeChildren bool) {
 	var childPrefix string
 	if c.Name == "" {
 		childPrefix = path
