@@ -30,7 +30,13 @@ type Location struct {
 	// you have either overlapping timing contexts. This is normally caused when multiple Goroutines
 	// are started in parallel in the same timing context.
 	Async bool `json:"async,omitempty"`
+
+	// Details allow you to add extra information about the timing location, so you can note the number
+	// of items processed or the number of attempts to access a resource.
+	Details map[string]anything
 }
+
+type anything interface{}
 
 // Start starts the timer on a given timing context. A timer can only be started if it is not
 // already started.
