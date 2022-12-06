@@ -52,6 +52,19 @@ Each timing location has optional `Details` field. This allows the user to add a
 
 This allows the user to add context to the timings that are being reported.
 
+For instance:
+
+```go
+func someFunction(ctx context.Context) {
+    tCtx := timing.Start(ctx, "someFunction")
+    defer tCtx.Complete()
+    // Do work
+	tCtx.Details["items"] = 42
+	tCtx.Details["retries"] = 1
+}
+
+```
+
 # Reporting
 
 ## String()
