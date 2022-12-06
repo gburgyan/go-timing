@@ -12,71 +12,71 @@ type DurationFormatter func(d time.Duration) string
 
 // dumpToBuilder is an internal function that recursively outputs the contents of each location
 // to the string builder passed in.
-func (c *TimingLocation) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
+func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
 	var childPrefix string
-	if c.Name == "" {
+	if l.Name == "" {
 		childPrefix = path
 	} else {
 		if b.Len() > 0 {
 			b.WriteString("\n")
 		}
-		reportDuration := c.TotalDuration
-		if excludeChildren && !c.Async {
-			reportDuration -= c.TotalChildDuration()
+		reportDuration := l.TotalDuration
+		if excludeChildren && !l.Async {
+			reportDuration -= l.TotalChildDuration()
 		}
 		b.WriteString(prefix)
 		b.WriteString(path)
 		var effectiveName string
-		if c.Async {
-			effectiveName = "[" + c.Name + "]"
+		if l.Async {
+			effectiveName = "[" + l.Name + "]"
 		} else {
-			effectiveName = c.Name
+			effectiveName = l.Name
 		}
 		b.WriteString(effectiveName)
 		b.WriteString(" - ")
-		if c.EntryCount > 0 {
+		if l.EntryCount > 0 {
 			if durFmr == nil {
 				b.WriteString(reportDuration.String())
 			} else {
 				b.WriteString(durFmr(reportDuration))
 			}
-			if c.EntryCount != c.ExitCount {
-				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", c.EntryCount, c.ExitCount))
-			} else if c.EntryCount > 1 {
-				b.WriteString(fmt.Sprintf(" calls: %d", c.EntryCount))
+			if l.EntryCount != l.ExitCount {
+				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
+			} else if l.EntryCount > 1 {
+				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
 			}
 		}
 		childPrefix = path + effectiveName + separator
 	}
 	var keys []string
-	for k := range c.Children {
+	for k := range l.Children {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		l := c.Children[k]
+		l := l.Children[k]
 		l.dumpToBuilder(b, prefix, separator, childPrefix, durFmr, excludeChildren)
 	}
 }
 
 // dumpToMap is an internal function that recursively outputs the contents of each location
 // to the map builder passed in.
-func (c *TimingLocation) dumpToMap(m map[string]float64, separator, path string, divisor float64, excludeChildren bool) {
+func (l *Location) dumpToMap(m map[string]float64, separator, path string, divisor float64, excludeChildren bool) {
 	var childPrefix string
-	if c.Name == "" {
+	if l.Name == "" {
 		childPrefix = path
 	} else {
-		reportDuration := c.TotalDuration
+		reportDuration := l.TotalDuration
 		if excludeChildren {
-			reportDuration -= c.TotalChildDuration()
+			reportDuration -= l.TotalChildDuration()
 		}
-		key := fmt.Sprintf("%s%s", path, c.Name)
-		if c.EntryCount > 0 {
+		key := fmt.Sprintf("%s%s", path, l.Name)
+		if l.EntryCount > 0 {
 			m[key] = float64(reportDuration.Nanoseconds()) / divisor
 		}
-		childPrefix = path + c.Name + separator
+		childPrefix = path + l.Name + separator
 	}
-	for _, c := range c.Children {
+	for _, c := range l.Children {
 		c.dumpToMap(m, separator, childPrefix, divisor, excludeChildren)
 	}
 }

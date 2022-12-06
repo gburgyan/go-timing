@@ -7,20 +7,15 @@ import (
 	"time"
 )
 
-type Context struct {
-	mu       sync.Mutex
-	prevCtx  context.Context
-	location *TimingLocation
-}
-
-type TimingLocation struct {
+type Location struct {
+	mu        sync.Mutex
 	startTime time.Time
 
 	// Name is the name of this timing context. If empty this is the non-reporting root of the context.
 	Name string `json:"name,omitempty"`
 
 	// Children has all the child timing contexts that have been started under this context.
-	Children map[string]*TimingLocation `json:"children,omitempty"`
+	Children map[string]*Location `json:"children,omitempty"`
 
 	// EntryCount is the number of times the timing context has been started.
 	EntryCount int `json:"entry-count,omitempty"`
@@ -37,103 +32,37 @@ type TimingLocation struct {
 	Async bool `json:"async,omitempty"`
 }
 
-type contextTiming int
-
-const contextTimingKey contextTiming = 0
-
-// Start begins a timing context and relates it to a preceding timing context if it exists.
-// If a previous context does not exist then this starts a new named root timing context.
-func Start(ctx context.Context, name string) *Context {
-	c := ForName(ctx, name)
-	c.Start()
-	return c
-}
-
-// Root creates a new unnamed timing context. This is similar to Start except there are no timers
-// started. This is provided to allow for a simpler report if it's desired.
-func Root(ctx context.Context) *Context {
-	if ctx == nil {
-		panic("context must be defined")
-	}
-	c := &Context{
-		prevCtx:  ctx,
-		location: &TimingLocation{},
-	}
-	return c
-}
-
-// StartRoot creates a new named timing context. Unlike Start, this will create a new unrelated timing
-// context regardless if there is a timing context already on the context stack. This is useful
-// for any long-running processes that finish after the Goroutine that started them have finished.
-func StartRoot(ctx context.Context, name string) *Context {
-	if ctx == nil {
-		panic("context must be defined")
-	}
-	c := &Context{
-		prevCtx: ctx,
-		location: &TimingLocation{
-			Name: name,
-		},
-	}
-	c.Start()
-	return c
-}
-
-// ForName returns an un-started Context. This is generally not used by client code, but
-// may be useful for a context that needs to be repeatedly started and completed for some
-// reason.
-func ForName(ctx context.Context, name string) *Context {
-	if name == "" {
-		panic("non-root timings must be named")
-	}
-	if ctx == nil {
-		panic("context must be defined")
-	}
-	p := findParentTiming(ctx)
-	if p == nil {
-		c := &Context{
-			prevCtx: ctx,
-			location: &TimingLocation{
-				Name: name,
-			},
-		}
-		return c
-	} else {
-		return p.getChild(ctx, name)
-	}
-}
-
 // Start starts the timer on a given timing context. A timer can only be started if it is not
 // already started.
-func (c *Context) Start() {
-	if !c.location.startTime.IsZero() {
+func (l *Location) Start() {
+	if !l.startTime.IsZero() {
 		panic("reentrant timing not supported")
 	}
-	c.location.EntryCount++
-	c.location.startTime = time.Now()
+	l.EntryCount++
+	l.startTime = time.Now()
 }
 
 // Complete marks a timing context as completed and adds the time to the total duration for
 // that timing context.
-func (c *Context) Complete() {
-	d := time.Since(c.location.startTime)
-	if c.location.startTime.IsZero() {
+func (l *Location) Complete() {
+	d := time.Since(l.startTime)
+	if l.startTime.IsZero() {
 		panic("timing context not started")
 	}
-	c.location.startTime = time.Time{} // Zero it out
-	c.location.ExitCount++
-	c.location.TotalDuration += d
+	l.startTime = time.Time{} // Zero it out
+	l.ExitCount++
+	l.TotalDuration += d
 }
 
 // String returns a multi-line report of what time was spent and where it was spent.
-func (c *Context) String() string {
+func (l *Location) String() string {
 	b := strings.Builder{}
-	c.location.dumpToBuilder(&b, "", " > ", "", nil, false)
+	l.dumpToBuilder(&b, "", " > ", "", nil, false)
 	return b.String()
 }
 
 // TotalChildDuration is a helper that computes the total time that the child timing contexts have spent.
-func (l *TimingLocation) TotalChildDuration() time.Duration {
+func (l *Location) TotalChildDuration() time.Duration {
 	d := time.Duration(0)
 	for _, child := range l.Children {
 		d += child.TotalDuration
@@ -159,9 +88,9 @@ func (l *TimingLocation) TotalChildDuration() time.Duration {
 //
 // the children's time would be counted twice, once for itself, and once for the parent.
 // With onlyLeaf, the parent's line is not directly reported on.
-func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, excludeChildren bool) string {
+func (l *Location) Report(prefix, separator string, durFmt DurationFormatter, excludeChildren bool) string {
 	b := strings.Builder{}
-	c.location.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
+	l.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
 	return b.String()
 }
 
@@ -173,70 +102,35 @@ func (c *Context) Report(prefix, separator string, durFmt DurationFormatter, exc
 //   - separator is a string that is used between levels of the timing tree.
 //   - excludeChildren will subtract out of the duration of the children when reporting
 //     the time.
-func (c *Context) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
+func (l *Location) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
 	result := map[string]float64{}
-	c.location.dumpToMap(result, separator, "", divisor, excludeChildren)
+	l.dumpToMap(result, separator, "", divisor, excludeChildren)
 	return result
-}
-
-// findParentTiming is a global that finds most recent timing context on the context stack.
-func findParentTiming(ctx context.Context) *Context {
-	value := ctx.Value(contextTimingKey)
-	if value == nil {
-		return nil
-	}
-	if ct, ok := value.(*Context); ok {
-		return ct
-	}
-	panic("invalid context timing type")
 }
 
 // getChild gets an existing timing context or creates a child timing context if one
 // does not exist.
-func (c *Context) getChild(ctx context.Context, name string) *Context {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	l := c.location
+func (l *Location) getChild(ctx context.Context, name string) *Context {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
 	if l.Children == nil {
-		l.Children = map[string]*TimingLocation{}
+		l.Children = map[string]*Location{}
 	}
 	if cl, ok := l.Children[name]; ok {
 		return &Context{
 			prevCtx:  ctx,
-			location: cl,
+			Location: cl,
 		}
 	} else {
-		cl := &TimingLocation{
+		cl := &Location{
 			Name: name,
 		}
 		cc := &Context{
 			prevCtx:  ctx,
-			location: cl,
+			Location: cl,
 		}
 		l.Children[name] = cl
 		return cc
 	}
-}
-
-// context.Context implementation
-
-func (c *Context) Deadline() (deadline time.Time, ok bool) {
-	return c.prevCtx.Deadline()
-}
-
-func (c *Context) Done() <-chan struct{} {
-	return c.prevCtx.Done()
-}
-
-func (c *Context) Err() error {
-	return c.prevCtx.Err()
-}
-
-func (c *Context) Value(key interface{}) interface{} {
-	if key == contextTimingKey {
-		return c
-	}
-	return c.prevCtx.Value(key)
 }

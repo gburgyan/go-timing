@@ -1,0 +1,111 @@
+package timing
+
+import (
+	"context"
+	"time"
+)
+
+type Context struct {
+	*Location
+
+	prevCtx context.Context
+}
+
+type contextTiming int
+
+const contextTimingKey contextTiming = 0
+
+// Start begins a timing context and relates it to a preceding timing context if it exists.
+// If a previous context does not exist then this starts a new named root timing context.
+func Start(ctx context.Context, name string) *Context {
+	c := ForName(ctx, name)
+	c.Start()
+	return c
+}
+
+// Root creates a new unnamed timing context. This is similar to Start except there are no timers
+// started. This is provided to allow for a simpler report if it's desired.
+func Root(ctx context.Context) *Context {
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	c := &Context{
+		prevCtx:  ctx,
+		Location: &Location{},
+	}
+	return c
+}
+
+// StartRoot creates a new named timing context. Unlike Start, this will create a new unrelated timing
+// context regardless if there is a timing context already on the context stack. This is useful
+// for any long-running processes that finish after the Goroutine that started them have finished.
+func StartRoot(ctx context.Context, name string) *Context {
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	c := &Context{
+		prevCtx: ctx,
+		Location: &Location{
+			Name: name,
+		},
+	}
+	c.Start()
+	return c
+}
+
+// ForName returns an un-started Context. This is generally not used by client code, but
+// may be useful for a context that needs to be repeatedly started and completed for some
+// reason.
+func ForName(ctx context.Context, name string) *Context {
+	if name == "" {
+		panic("non-root timings must be named")
+	}
+	if ctx == nil {
+		panic("context must be defined")
+	}
+	p := findParentTiming(ctx)
+	if p == nil {
+		c := &Context{
+			prevCtx: ctx,
+			Location: &Location{
+				Name: name,
+			},
+		}
+		return c
+	} else {
+		return p.getChild(ctx, name)
+	}
+}
+
+// findParentTiming is a global that finds most recent timing context on the context stack.
+func findParentTiming(ctx context.Context) *Context {
+	value := ctx.Value(contextTimingKey)
+	if value == nil {
+		return nil
+	}
+	if ct, ok := value.(*Context); ok {
+		return ct
+	}
+	panic("invalid context timing type")
+}
+
+// context.Context implementation
+
+func (c *Context) Deadline() (deadline time.Time, ok bool) {
+	return c.prevCtx.Deadline()
+}
+
+func (c *Context) Done() <-chan struct{} {
+	return c.prevCtx.Done()
+}
+
+func (c *Context) Err() error {
+	return c.prevCtx.Err()
+}
+
+func (c *Context) Value(key interface{}) interface{} {
+	if key == contextTimingKey {
+		return c
+	}
+	return c.prevCtx.Value(key)
+}
