@@ -235,3 +235,29 @@ func Test_ReentrantPanics(t *testing.T) {
 
 	fmt.Print()
 }
+
+func Test_DetailsPlain(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx := Start(ctx, "root")
+	rootCtx.Complete()
+
+	rootCtx.TotalDuration = time.Microsecond
+	rootCtx.Details["string"] = "foo"
+	rootCtx.Details["int"] = 42
+
+	assert.Equal(t, "root - 1µs (int:42, string:foo)", rootCtx.String())
+}
+
+func Test_DetailsNewlines(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx := Start(ctx, "root")
+	rootCtx.Complete()
+
+	rootCtx.TotalDuration = time.Microsecond
+	rootCtx.Details["short"] = "alice\nbob\ncarol\n"
+	rootCtx.Details["longer"] = "alice\neve\nbob"
+
+	assert.Equal(t, "root - 1µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol", rootCtx.String())
+}

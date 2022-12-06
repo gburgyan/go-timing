@@ -33,7 +33,7 @@ type Location struct {
 
 	// Details allow you to add extra information about the timing location, so you can note the number
 	// of items processed or the number of attempts to access a resource.
-	Details map[string]anything
+	Details map[string]anything `json:"details,omitempty"`
 }
 
 type anything interface{}

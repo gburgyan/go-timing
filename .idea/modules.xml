@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/go-timing.iml" filepath="$PROJECT_DIR$/go-timing.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../go-timing.wiki/go-timing.wiki.iml" filepath="$PROJECT_DIR$/../go-timing.wiki/go-timing.wiki.iml" />
     </modules>
   </component>
 </project>

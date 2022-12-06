@@ -40,7 +40,17 @@ func someFunction(ctx context.Context) {
 }
 ```
 
-The returned `tCtx` is a context object like any other. This one has the feature that if can track timings. Additionally, if when starting a timing context, there exists a timnig context on the timing stack, the new timing context is added as a child of the parent.
+The returned `tCtx` is a context object like any other. This one has the feature that if can track timings. Additionally, if when starting a timing context, there exists a timing context on the timing stack, the new timing context is added as a child of the parent.
+
+## Details
+
+Each timing location has optional `Details` field. This allows the user to add additional details about the timing location. This can be used to add additional context about the timing such as:
+
+* Number of items processed
+* Count of attempts to access a resource
+* Etc.
+
+This allows the user to add context to the timings that are being reported.
 
 # Reporting
 
@@ -85,9 +95,35 @@ The default Golang `duration` formatting is great for human readability, but it'
 
 Originally this was implemented as an explosion of parameters to the function. This wound up being complex and still wouldn't allow for as much flexibility as desired. It was decided that delegating to a function that can do whatever the caller needs is the best solution.
 
+### Details formatting
+
+If there are any details that are present for the timing location, these will be appended to the location they are relevant to. If the details are multi-lined, all the details will be below the location.
+
+Here is the formatting for simple cases:
+
+```text
+ProcessRequest - 15ms
+ProcessRequest > someFunction - 120ms (items:42, retries:1)
+ProcessRequest > otherFunction - 185ms
+```
+
+If there is a multi-line output, it would look like this:
+
+```text
+ProcessRequest - 15ms
+ProcessRequest > someFunction - 120ms
+    items:42
+    multi:line 1
+          line 2
+    retries:1
+ProcessRequest > otherFunction - 185ms
+```
+
 ## ReportMap
 
 This is similar to, but simpler than, the text-based `Report` function. This formats the report into an even simpler `map[string]float64` of just the durations for the various timing contexts. This is intended to be easy to consume by a system like Splunk for reporting purposes.
+
+Details are not emitted for the `map` representation.
 
 ## JSON
 

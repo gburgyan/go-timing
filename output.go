@@ -46,6 +46,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
 			}
 		}
+		b.WriteString(l.formatDetails())
 		childPrefix = path + effectiveName + separator
 	}
 	var keys []string
@@ -79,4 +80,57 @@ func (l *Location) dumpToMap(m map[string]float64, separator, path string, divis
 	for _, c := range l.Children {
 		c.dumpToMap(m, separator, childPrefix, divisor, excludeChildren)
 	}
+}
+
+func (l *Location) formatDetails() string {
+	if len(l.Details) == 0 {
+		return ""
+	}
+	var keys []string
+	for k := range l.Details {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	anyNewlines := false
+	formattedDetails := map[string]string{}
+	for _, k := range keys {
+		o := l.Details[k]
+		s := fmt.Sprintf("%+v", o)
+		if strings.Contains(s, "\n") {
+			anyNewlines = true
+		}
+		formattedDetails[k] = s
+	}
+	builder := strings.Builder{}
+	if !anyNewlines {
+		builder.WriteString(" (")
+		for i, k := range keys {
+			if i > 0 {
+				builder.WriteString(", ")
+			}
+			builder.WriteString(k)
+			builder.WriteString(":")
+			builder.WriteString(formattedDetails[k])
+		}
+		builder.WriteString(")")
+	} else {
+		const baseIndent = 4
+		for _, k := range keys {
+			lines := strings.Split(strings.TrimRight(formattedDetails[k], "\n"), "\n")
+			keyIndent := len(k) + 1 + baseIndent
+			for i, line := range lines {
+				builder.WriteString("\n")
+				if i == 0 {
+					builder.WriteString(strings.Repeat(" ", baseIndent))
+					builder.WriteString(k)
+					builder.WriteString(":")
+					builder.WriteString(line)
+				} else {
+					builder.WriteString(strings.Repeat(" ", keyIndent))
+					builder.WriteString(line)
+				}
+			}
+		}
+	}
+	return builder.String()
 }
