@@ -46,7 +46,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
 			}
 		}
-		b.WriteString(l.formatDetails())
+		b.WriteString(l.formatDetails(prefix))
 		childPrefix = path + effectiveName + separator
 	}
 	var keys []string
@@ -82,7 +82,7 @@ func (l *Location) dumpToMap(m map[string]float64, separator, path string, divis
 	}
 }
 
-func (l *Location) formatDetails() string {
+func (l *Location) formatDetails(prefix string) string {
 	if len(l.Details) == 0 {
 		return ""
 	}
@@ -120,6 +120,7 @@ func (l *Location) formatDetails() string {
 			keyIndent := len(k) + 1 + baseIndent
 			for i, line := range lines {
 				builder.WriteString("\n")
+				builder.WriteString(prefix)
 				if i == 0 {
 					builder.WriteString(strings.Repeat(" ", baseIndent))
 					builder.WriteString(k)
