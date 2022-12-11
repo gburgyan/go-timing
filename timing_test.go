@@ -260,4 +260,5 @@ func Test_DetailsNewlines(t *testing.T) {
 	rootCtx.Details["longer"] = "alice\neve\nbob"
 
 	assert.Equal(t, "root - 1µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol", rootCtx.String())
+	assert.Equal(t, "* root - 1µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol", rootCtx.Report("* ", " > ", nil, false))
 }
