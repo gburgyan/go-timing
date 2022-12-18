@@ -209,7 +209,18 @@ The result of this would look like:
 
 The async timing context is represented by having the name inside square brackets.
 
-In cases where there no need to distinguish be
+In cases where there no need to distinguish between different children, the timing system will continue to function correctly. If we replace the child start to be
+
+```go
+cCtx, childComplete := timing.Start(tCtx, "child")
+```
+
+then the result will look like:
+
+```text
+[process] - 250ms
+[process] > child - 990ms calls: 5
+```
 
 ## Overlapping timing contexts
 
