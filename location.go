@@ -61,7 +61,7 @@ func (l *Location) Start() Complete {
 // String returns a multi-line report of what time was spent and where it was spent.
 func (l *Location) String() string {
 	b := strings.Builder{}
-	l.dumpToBuilder(&b, "", " > ", "", nil, false)
+	l.dumpToBuilder(&b, "", &ReportOptions{Separator: " > "})
 	return b.String()
 }
 
@@ -92,9 +92,12 @@ func (l *Location) TotalChildDuration() time.Duration {
 //
 // the children's time would be counted twice, once for itself, and once for the parent.
 // With onlyLeaf, the parent's line is not directly reported on.
-func (l *Location) Report(prefix, separator string, durFmt DurationFormatter, excludeChildren bool) string {
+func (l *Location) Report(options ReportOptions) string {
+	if options.Separator == "" {
+		options.Separator = " > "
+	}
 	b := strings.Builder{}
-	l.dumpToBuilder(&b, prefix, separator, "", durFmt, excludeChildren)
+	l.dumpToBuilder(&b, "", &options)
 	return b.String()
 }
 

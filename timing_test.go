@@ -71,12 +71,12 @@ func Test_Nesting(t *testing.T) {
 	rootCtx.TotalDuration = 210 * time.Millisecond
 
 	assert.Equal(t, "root - 210ms\nroot > child 1 - 100ms\nroot > child 2 - 100ms", rootCtx.String())
-	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report("", ".", nil, true))
-	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report("", ".", nil, false))
+	assert.Equal(t, "root - 10ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report(ReportOptions{Separator: ".", ExcludeChildren: true}))
+	assert.Equal(t, "root - 210ms\nroot.child 1 - 100ms\nroot.child 2 - 100ms", rootCtx.Report(ReportOptions{Separator: "."}))
 	custFmt := func(d time.Duration) string {
 		return strconv.Itoa(int(d.Milliseconds()))
 	}
-	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100", rootCtx.Report("", ".", custFmt, false))
+	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100", rootCtx.Report(ReportOptions{Separator: ".", DurationFormatter: custFmt}))
 
 	fmt.Println(rootCtx)
 
@@ -215,7 +215,7 @@ func Test_Async(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2\n[root] > child 2 - 100ms", rootCtx.Report("", " > ", nil, true))
+	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
 }
 
 func Test_ReentrantPanics(t *testing.T) {
@@ -258,5 +258,5 @@ func Test_DetailsNewlines(t *testing.T) {
 	rootCtx.Details["longer"] = "alice\neve\nbob"
 
 	assert.Equal(t, "root - 1µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol", rootCtx.String())
-	assert.Equal(t, "* root - 1µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol", rootCtx.Report("* ", " > ", nil, false))
+	assert.Equal(t, "* root - 1µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol", rootCtx.Report(ReportOptions{Prefix: "* "}))
 }

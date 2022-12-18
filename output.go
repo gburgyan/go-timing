@@ -7,12 +7,20 @@ import (
 	"time"
 )
 
+type ReportOptions struct {
+	Prefix            string
+	Separator         string
+	DurationFormatter DurationFormatter
+	ExcludeChildren   bool
+	Compact           bool
+}
+
 // DurationFormatter is a function to format a reported duration in whatever way you need.
 type DurationFormatter func(d time.Duration) string
 
 // dumpToBuilder is an internal function that recursively outputs the contents of each location
 // to the string builder passed in.
-func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path string, durFmr DurationFormatter, excludeChildren bool) {
+func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *ReportOptions) {
 	var childPrefix string
 	if l.Name == "" {
 		childPrefix = path
@@ -21,10 +29,10 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 			b.WriteString("\n")
 		}
 		reportDuration := l.TotalDuration
-		if excludeChildren && !l.Async {
+		if options.ExcludeChildren && !l.Async {
 			reportDuration -= l.TotalChildDuration()
 		}
-		b.WriteString(prefix)
+		b.WriteString(options.Prefix)
 		b.WriteString(path)
 		var effectiveName string
 		if l.Async {
@@ -35,10 +43,10 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 		b.WriteString(effectiveName)
 		b.WriteString(" - ")
 		if l.EntryCount > 0 {
-			if durFmr == nil {
+			if options.DurationFormatter == nil {
 				b.WriteString(reportDuration.String())
 			} else {
-				b.WriteString(durFmr(reportDuration))
+				b.WriteString(options.DurationFormatter(reportDuration))
 			}
 			if l.EntryCount != l.ExitCount {
 				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
@@ -46,8 +54,8 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
 			}
 		}
-		b.WriteString(l.formatDetails(prefix))
-		childPrefix = path + effectiveName + separator
+		b.WriteString(l.formatDetails(options.Prefix))
+		childPrefix = path + effectiveName + options.Separator
 	}
 	var keys []string
 	for k := range l.Children {
@@ -56,7 +64,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, prefix, separator, path str
 	sort.Strings(keys)
 	for _, k := range keys {
 		l := l.Children[k]
-		l.dumpToBuilder(b, prefix, separator, childPrefix, durFmr, excludeChildren)
+		l.dumpToBuilder(b, childPrefix, options)
 	}
 }
 
