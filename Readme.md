@@ -24,7 +24,7 @@ func ProcessRequest(ctx context.Context) result {
     
     complete()
     
-    fmt.Print(tCtx)
+    fmt.Println(tCtx)
 }
 
 func someFunction(ctx context.Context) {
