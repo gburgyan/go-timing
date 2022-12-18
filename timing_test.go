@@ -77,7 +77,7 @@ func Test_Nesting(t *testing.T) {
 		return strconv.Itoa(int(d.Milliseconds()))
 	}
 	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100", rootCtx.Report(ReportOptions{Separator: ".", DurationFormatter: custFmt}))
-	assert.Equal(t, "root - 210ms\n > child 1 - 100ms\n > child 2 - 100ms", rootCtx.Report(ReportOptions{Compact: true}))
+	assert.Equal(t, "root - 210ms\n | child 1 - 100ms\n | child 2 - 100ms", rootCtx.Report(ReportOptions{Compact: true}))
 
 	fmt.Println(rootCtx)
 

@@ -77,7 +77,11 @@ func (l *Location) TotalChildDuration() time.Duration {
 // Report generates a report of how much time was spent where.
 func (l *Location) Report(options ReportOptions) string {
 	if options.Separator == "" {
-		options.Separator = " > "
+		if options.Compact {
+			options.Separator = " | "
+		} else {
+			options.Separator = " > "
+		}
 	}
 	b := strings.Builder{}
 	l.dumpToBuilder(&b, "", &options)

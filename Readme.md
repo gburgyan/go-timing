@@ -132,6 +132,18 @@ ProcessRequest > someFunction - 120ms
 ProcessRequest > otherFunction - 185ms
 ```
 
+### Compact mode
+
+By specifying `Compact = true`, each line only contains the location itself and not the entire path. So the above example would look like:
+
+```text
+ProcessRequest - 15ms
+ | someFunction - 120ms (items:42, retries:1)
+ | otherFunction - 185ms
+```
+
+This serves to reduce the volume of output in case space is constrained. Additionally, the default separator is now " | ".
+
 ## ReportMap
 
 This is similar to, but simpler than, the text-based `Report` function. This formats the report into an even simpler `map[string]float64` of just the durations for the various timing contexts. This is intended to be easy to consume by a system like Splunk for reporting purposes.

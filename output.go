@@ -82,7 +82,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 		}
 		b.WriteString(l.formatDetails(options.Prefix))
 		if options.Compact {
-			childPrefix = strings.Repeat(" ", len(path)) + options.Separator
+			childPrefix = path + options.Separator
 		} else {
 			childPrefix = path + effectiveName + options.Separator
 		}
