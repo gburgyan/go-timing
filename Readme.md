@@ -12,30 +12,30 @@ go get github.com/gburgyan/go-timing
 
 # Usage
 
-The simplest use case of this is just start up a timing context and pass that context along to functions you call as you would for any other context:
+The simplest use case of this is just start up a timing context and pass that context along to the functions you call as you would for any other context:
 
 ```go
 func ProcessRequest(ctx context.Context) result {
-    tCtx := timing.Start(ctx, "ProcessRequest")
+    tCtx, complete := timing.Start(ctx, "ProcessRequest")
 
     someFunction(tCtx)
     otherFunction(tCtx)
     // other processing
     
-    tCtx.Complete()
+    complete()
     
     fmt.Print(tCtx)
 }
 
 func someFunction(ctx context.Context) {
-    tCtx := timing.Start(ctx, "someFunction")
-    defer tCtx.Complete()
+    tCtx, complete := timing.Start(ctx, "someFunction")
+    defer complete()
     // Do work
 }
 
 func someFunction(ctx context.Context) {
-    tCtx := timing.Start(ctx, "otherFunction")
-    defer tCtx.Complete()
+    tCtx, complete := timing.Start(ctx, "otherFunction")
+    defer complete()
     // Do work
 }
 ```
@@ -56,8 +56,8 @@ For instance:
 
 ```go
 func someFunction(ctx context.Context) {
-    tCtx := timing.Start(ctx, "someFunction")
-    defer tCtx.Complete()
+    tCtx, complete := timing.Start(ctx, "someFunction")
+    defer complete()
     // Do work
     tCtx.Details["items"] = 42
     tCtx.Details["retries"] = 1
@@ -160,9 +160,9 @@ If you need timing logs for a long-running process, the correct approach is to s
 
 ## Repeated starts and completes
 
-If you need to repeatedly start and complete a timing context, there is a way to quickly and easily do that. If you `timing.Start` a new context and `Complete()` it, you can call the context's `Start` again.
+If you need to repeatedly start and complete a timing context, there is a way to quickly and easily do that. If you `timing.Start` a new context and call the completion handler for it, you can call the context's `Start` again.
 
-Another way to do this is to call `timing.ForName()` which will return an un-started timing context. You can then call `Start()` and `Complete()` repeatedly.
+Another way to do this is to call `timing.ForName()` which will return an un-started timing context. You can then call `Start()` and complete it repeatedly.
 
 This can be useful in cases where you may be accessing some resource, like saving to a file, many times and you only want to count the time for that.
 
@@ -174,13 +174,13 @@ Consider the following:
 
 ```go
 func process(ctx context.Context, count int) {
-    tCtx := timing.Start(ctx, "process")
+    tCtx, complete := timing.Start(ctx, "process")
     tCtx.Async = true // The important part for this example
     results := make(chan result, 0)
     for i := 0; i < count; i++ {
         go func(i int) {
-            cCtx := timing.Start(tCtx, fmt.Sprintf("child-%d", i))
-            defer cCtx.Complete()
+            cCtx, childComplete := timing.Start(tCtx, fmt.Sprintf("child-%d", i))
+            defer childComplete()
             // do work
             results <- result
         }	
@@ -189,7 +189,7 @@ func process(ctx context.Context, count int) {
         result := <-results
         fmt.Println(result)
     }
-    tCtx.Complete()
+    complete()
     fmt.Println(tCtx)
 }
 ```
@@ -209,19 +209,22 @@ The result of this would look like:
 
 The async timing context is represented by having the name inside square brackets.
 
+In cases where there no need to distinguish be
+
 ## Overlapping timing contexts
 
 There is nothing preventing overlapping timing contexts:
 
 ```go
-root := timing.Start(ctx, "root")
-ta := timing.Start(root, "ProcessA")
+root, rootComplete := timing.Start(ctx, "root")
+ta, aComplete := timing.Start(root, "ProcessA")
 // stuff
-tb := timing.Start(root, "ProcessB")
+tb, bComplete := timing.Start(root, "ProcessB")
 // stuff
-ta.Complete()
+aComplete()
 // stuff
-tb.Complete()
+bComplete()
+rootComplete()
 ```
 
 The children will get reported fine. Be aware, however, that if you report on this with the exclude children flag, this can lead to a time, potentially negative, being reported on. The way to address this is to add `root.Async = true` after the timing context is started. This will prevent the children from being subtracted out since they are, essentially, running out of sync with each other.

@@ -15,13 +15,13 @@ func Test_TrivialRoot(t *testing.T) {
 
 	tCtx := Root(ctx)
 
-	assert.Equal(t, 0, tCtx.EntryCount)
-	assert.Equal(t, 0, tCtx.ExitCount)
+	assert.Equal(t, uint32(0), tCtx.EntryCount)
+	assert.Equal(t, uint32(0), tCtx.ExitCount)
 
 	assert.Equal(t, "", tCtx.String())
 
-	child := Start(tCtx, "child")
-	child.Complete()
+	child, complete := Start(tCtx, "child")
+	complete()
 
 	child.TotalDuration = 100 * time.Millisecond
 
@@ -34,12 +34,12 @@ func Test_TrivialRoot(t *testing.T) {
 func Test_NonTrivialRoot(t *testing.T) {
 	ctx := context.Background()
 
-	tCtx := Start(ctx, "root")
+	tCtx, complete := Start(ctx, "root")
 	time.Sleep(time.Millisecond)
-	tCtx.Complete()
+	complete()
 
-	assert.Equal(t, 1, tCtx.EntryCount)
-	assert.Equal(t, 1, tCtx.ExitCount)
+	assert.Equal(t, uint32(1), tCtx.EntryCount)
+	assert.Equal(t, uint32(1), tCtx.ExitCount)
 	assert.Greater(t, tCtx.TotalDuration, time.Duration(0))
 
 	tCtx.TotalDuration = 100 * time.Millisecond
@@ -50,23 +50,23 @@ func Test_NonTrivialRoot(t *testing.T) {
 func Test_Nesting(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
+	rootCtx, rootComplete := Start(ctx, "root")
 
 	assert.Equal(t, time.Duration(0), rootCtx.TotalChildDuration())
 
-	child1Ctx := Start(rootCtx, "child 1")
-	child1Ctx.Complete()
+	child1Ctx, c1complete := Start(rootCtx, "child 1")
+	c1complete()
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, 100*time.Millisecond, rootCtx.TotalChildDuration())
 
-	child2Ctx := Start(rootCtx, "child 2")
-	child2Ctx.Complete()
+	child2Ctx, c2complete := Start(rootCtx, "child 2")
+	c2complete()
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
 	assert.Equal(t, 200*time.Millisecond, rootCtx.TotalChildDuration())
 
-	rootCtx.Complete()
+	rootComplete()
 
 	rootCtx.TotalDuration = 210 * time.Millisecond
 
@@ -108,11 +108,11 @@ func Test_ContextBehavior(t *testing.T) {
 
 	ctxV1 := context.WithValue(ctx, 1, o1)
 
-	rootCtx := Start(ctxV1, "root")
+	rootCtx, _ := Start(ctxV1, "root")
 
 	ctxV2 := context.WithValue(rootCtx, 2, o2)
 
-	child2Ctx := Start(ctxV2, "child 1")
+	child2Ctx, _ := Start(ctxV2, "child 1")
 
 	assert.Equal(t, o1, child2Ctx.Value(1))
 	assert.Equal(t, o2, child2Ctx.Value(2))
@@ -144,7 +144,7 @@ func Test_ParentTimingPanic(t *testing.T) {
 }
 
 func Test_Context(t *testing.T) {
-	ctxT := Start(context.Background(), "timer")
+	ctxT, _ := Start(context.Background(), "timer")
 	assert.Nil(t, ctxT.Done())
 	deadline, ok := ctxT.Deadline()
 	assert.True(t, deadline.IsZero())
@@ -155,18 +155,18 @@ func Test_Context(t *testing.T) {
 func Test_MultiStart(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
+	rootCtx, rootComplete := Start(ctx, "root")
 
-	child1Ctx := Start(rootCtx, "child 1")
-	child1Ctx.Complete()
+	child1Ctx, c1complete := Start(rootCtx, "child 1")
+	c1complete()
 
-	child1Ctx = Start(rootCtx, "child 1")
-	child1Ctx.Complete()
+	child1Ctx, c1complete = Start(rootCtx, "child 1")
+	c1complete()
 
-	child2Ctx := Start(rootCtx, "child 2")
-	child2Ctx.Complete()
+	child2Ctx, c2complete := Start(rootCtx, "child 2")
+	c2complete()
 
-	rootCtx.Complete()
+	rootComplete()
 	rootCtx.TotalDuration = 200 * time.Millisecond
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
@@ -177,17 +177,17 @@ func Test_MultiStart(t *testing.T) {
 func Test_MultiRoot(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
+	rootCtx, rootComplete := Start(ctx, "root")
 
-	child1Ctx := Start(rootCtx, "child 1")
+	child1Ctx, c1complete := Start(rootCtx, "child 1")
 
-	root2Ctx := StartRoot(child1Ctx, "goroutine")
-	root2Ctx.Complete()
+	root2Ctx, grComplete := StartRoot(child1Ctx, "goroutine")
+	grComplete()
 	root2Ctx.TotalDuration = 100 * time.Millisecond
 
-	child1Ctx.Complete()
+	c1complete()
 
-	rootCtx.Complete()
+	rootComplete()
 	rootCtx.TotalDuration = 200 * time.Millisecond
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 
@@ -198,19 +198,19 @@ func Test_MultiRoot(t *testing.T) {
 func Test_Async(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
+	rootCtx, rootComplete := Start(ctx, "root")
 	rootCtx.Async = true
 
-	child1Ctx := Start(rootCtx, "child 1")
-	child1Ctx.Complete()
+	child1Ctx, c1Complete := Start(rootCtx, "child 1")
+	c1Complete()
 
-	child1Ctx = Start(rootCtx, "child 1")
-	child1Ctx.Complete()
+	child1Ctx, c1Complete = Start(rootCtx, "child 1")
+	c1Complete()
 
-	child2Ctx := Start(rootCtx, "child 2")
-	child2Ctx.Complete()
+	child2Ctx, c2Complete := Start(rootCtx, "child 2")
+	c2Complete()
 
-	rootCtx.Complete()
+	rootComplete()
 	rootCtx.TotalDuration = 110 * time.Millisecond
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
@@ -221,16 +221,14 @@ func Test_Async(t *testing.T) {
 func Test_ReentrantPanics(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
-	childCtx := Start(rootCtx, "child")
+	rootCtx, _ := Start(ctx, "root")
+	_, childComplete := Start(rootCtx, "child")
 
-	assert.Panics(t, func() {
-		Start(rootCtx, "child")
-	})
+	Start(rootCtx, "child") // Ignores returns
 
-	childCtx.Complete()
+	childComplete()
 	assert.Panics(t, func() {
-		childCtx.Complete()
+		childComplete()
 	})
 
 	fmt.Print()
@@ -239,8 +237,8 @@ func Test_ReentrantPanics(t *testing.T) {
 func Test_DetailsPlain(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
-	rootCtx.Complete()
+	rootCtx, rootComplete := Start(ctx, "root")
+	rootComplete()
 
 	rootCtx.TotalDuration = time.Microsecond
 	rootCtx.Details["string"] = "foo"
@@ -252,8 +250,8 @@ func Test_DetailsPlain(t *testing.T) {
 func Test_DetailsNewlines(t *testing.T) {
 	ctx := context.Background()
 
-	rootCtx := Start(ctx, "root")
-	rootCtx.Complete()
+	rootCtx, rootComplete := Start(ctx, "root")
+	rootComplete()
 
 	rootCtx.TotalDuration = time.Microsecond
 	rootCtx.Details["short"] = "alice\nbob\ncarol\n"

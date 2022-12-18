@@ -17,10 +17,9 @@ const contextTimingKey contextTiming = 0
 
 // Start begins a timing context and relates it to a preceding timing context if it exists.
 // If a previous context does not exist then this starts a new named root timing context.
-func Start(ctx context.Context, name string) *Context {
+func Start(ctx context.Context, name string) (*Context, Complete) {
 	c := ForName(ctx, name)
-	c.Start()
-	return c
+	return c, c.Start()
 }
 
 // Root creates a new unnamed timing context. This is similar to Start except there are no timers
@@ -39,7 +38,7 @@ func Root(ctx context.Context) *Context {
 // StartRoot creates a new named timing context. Unlike Start, this will create a new unrelated timing
 // context regardless if there is a timing context already on the context stack. This is useful
 // for any long-running processes that finish after the Goroutine that started them have finished.
-func StartRoot(ctx context.Context, name string) *Context {
+func StartRoot(ctx context.Context, name string) (*Context, Complete) {
 	if ctx == nil {
 		panic("context must be defined")
 	}
@@ -50,8 +49,7 @@ func StartRoot(ctx context.Context, name string) *Context {
 			Details: map[string]anything{},
 		},
 	}
-	c.Start()
-	return c
+	return c, c.Start()
 }
 
 // ForName returns an un-started Context. This is generally not used by client code, but

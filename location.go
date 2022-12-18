@@ -4,12 +4,12 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type Location struct {
-	mu        sync.Mutex
-	startTime time.Time
+	mu sync.Mutex
 
 	// Name is the name of this timing context. If empty this is the non-reporting root of the context.
 	Name string `json:"name,omitempty"`
@@ -18,10 +18,10 @@ type Location struct {
 	Children map[string]*Location `json:"children,omitempty"`
 
 	// EntryCount is the number of times the timing context has been started.
-	EntryCount int `json:"entry-count,omitempty"`
+	EntryCount uint32 `json:"entry-count,omitempty"`
 
 	// ExistCount is the number of times the timing context has been completed.
-	ExitCount int `json:"exit-count,omitempty"`
+	ExitCount uint32 `json:"exit-count,omitempty"`
 
 	// TotalDuration is the amount of time this context has been started.
 	TotalDuration time.Duration `json:"total-duration,omitempty"`
@@ -38,26 +38,24 @@ type Location struct {
 
 type anything interface{}
 
-// Start starts the timer on a given timing context. A timer can only be started if it is not
-// already started.
-func (l *Location) Start() {
-	if !l.startTime.IsZero() {
-		panic("reentrant timing not supported")
-	}
-	l.EntryCount++
-	l.startTime = time.Now()
-}
+// Complete is a function to call when a concurrent execution is completed.
+type Complete func()
 
-// Complete marks a timing context as completed and adds the time to the total duration for
-// that timing context.
-func (l *Location) Complete() {
-	d := time.Since(l.startTime)
-	if l.startTime.IsZero() {
-		panic("timing context not started")
+// Start begins a timed event for this location. It returns a Complete function that is
+// to be called when whatever it is that is being timed is completed.
+func (l *Location) Start() Complete {
+	ended := false
+	atomic.AddUint32(&l.EntryCount, 1)
+	startTime := time.Now()
+	return func() {
+		d := time.Since(startTime)
+		if ended {
+			panic("timing already completed")
+		}
+		ended = true
+		atomic.AddUint32(&l.ExitCount, 1)
+		atomic.AddInt64((*int64)(&l.TotalDuration), int64(d))
 	}
-	l.startTime = time.Time{} // Zero it out
-	l.ExitCount++
-	l.TotalDuration += d
 }
 
 // String returns a multi-line report of what time was spent and where it was spent.
@@ -123,6 +121,7 @@ func (l *Location) getChild(ctx context.Context, name string) *Context {
 	if l.Children == nil {
 		l.Children = map[string]*Location{}
 	}
+
 	if cl, ok := l.Children[name]; ok {
 		return &Context{
 			prevCtx:  ctx,
