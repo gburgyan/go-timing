@@ -7,12 +7,28 @@ import (
 	"time"
 )
 
+// ReportOptions configures how the report is formatted.
 type ReportOptions struct {
-	Prefix            string
-	Separator         string
+	// Prefix gets output prior to every new line in the output.
+	Prefix string
+
+	// Separator is output between every level of the output. If Compact is specified then
+	// this is printed on the following line and subsequent lines are only indented by
+	// len(Separator) spaces. If this is not specified the default is " > ".
+	Separator string
+
+	// DurationFormatter, if specified, is called to format durations. Otherwise, the default
+	// Golang time.Duration String() is called.
 	DurationFormatter DurationFormatter
-	ExcludeChildren   bool
-	Compact           bool
+
+	// ExcludeChildren controls if the child durations are subtracted from this duration or
+	// not. If the Location is marked as Async then the child durations are not subtracted out
+	// for that level.
+	ExcludeChildren bool
+
+	// Compact controls if the full path is output for each line or if levels are implied
+	// with indents. This makes for a far smaller output for deep timing trees.
+	Compact bool
 }
 
 // DurationFormatter is a function to format a reported duration in whatever way you need.
@@ -50,12 +66,26 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 			}
 			if l.EntryCount != l.ExitCount {
 				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
-			} else if l.EntryCount > 1 {
+			} else if l.ExitCount > 1 {
 				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
+			}
+			if l.ExitCount > 1 {
+				perCallDuration := time.Duration(float64(reportDuration) / float64(l.ExitCount))
+				var fmtCallDuration string
+				if options.DurationFormatter == nil {
+					fmtCallDuration = perCallDuration.String()
+				} else {
+					fmtCallDuration = options.DurationFormatter(perCallDuration)
+				}
+				b.WriteString(fmt.Sprintf(" (%s/call)", fmtCallDuration))
 			}
 		}
 		b.WriteString(l.formatDetails(options.Prefix))
-		childPrefix = path + effectiveName + options.Separator
+		if options.Compact {
+			childPrefix = strings.Repeat(" ", len(path)) + options.Separator
+		} else {
+			childPrefix = path + effectiveName + options.Separator
+		}
 	}
 	var keys []string
 	for k := range l.Children {

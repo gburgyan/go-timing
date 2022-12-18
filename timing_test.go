@@ -77,6 +77,7 @@ func Test_Nesting(t *testing.T) {
 		return strconv.Itoa(int(d.Milliseconds()))
 	}
 	assert.Equal(t, "root - 210\nroot.child 1 - 100\nroot.child 2 - 100", rootCtx.Report(ReportOptions{Separator: ".", DurationFormatter: custFmt}))
+	assert.Equal(t, "root - 210ms\n > child 1 - 100ms\n > child 2 - 100ms", rootCtx.Report(ReportOptions{Compact: true}))
 
 	fmt.Println(rootCtx)
 
@@ -171,7 +172,11 @@ func Test_MultiStart(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2\nroot > child 2 - 100ms", rootCtx.String())
+	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2 (50ms/call)\nroot > child 2 - 100ms", rootCtx.String())
+	custFmt := func(d time.Duration) string {
+		return strconv.Itoa(int(d.Milliseconds()))
+	}
+	assert.Equal(t, "root - 200\nroot > child 1 - 100 calls: 2 (50/call)\nroot > child 2 - 100", rootCtx.Report(ReportOptions{DurationFormatter: custFmt}))
 }
 
 func Test_MultiRoot(t *testing.T) {
@@ -215,7 +220,7 @@ func Test_Async(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
+	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2 (50ms/call)\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
 }
 
 func Test_ReentrantPanics(t *testing.T) {
