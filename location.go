@@ -119,7 +119,8 @@ func (l *Location) getChild(ctx context.Context, name string) *Context {
 		}
 	} else {
 		cl := &Location{
-			Name: name,
+			Name:    name,
+			Details: map[string]anything{},
 		}
 		cc := &Context{
 			prevCtx:  ctx,

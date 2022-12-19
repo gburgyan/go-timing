@@ -256,12 +256,26 @@ func Test_DetailsNewlines(t *testing.T) {
 	ctx := context.Background()
 
 	rootCtx, rootComplete := Start(ctx, "root")
+	childCtx, childComplete := Start(rootCtx, "child")
+	childComplete()
 	rootComplete()
 
-	rootCtx.TotalDuration = time.Microsecond
+	rootCtx.TotalDuration = 100 * time.Microsecond
 	rootCtx.Details["short"] = "alice\nbob\ncarol\n"
 	rootCtx.Details["longer"] = "alice\neve\nbob"
 
-	assert.Equal(t, "root - 1µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol", rootCtx.String())
-	assert.Equal(t, "* root - 1µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol", rootCtx.Report(ReportOptions{Prefix: "* "}))
+	childCtx.TotalDuration = 50 * time.Microsecond
+	childCtx.Details["lines"] = "multiple\nlines"
+
+	result := rootCtx.String()
+	//fmt.Println(result)
+	assert.Equal(t, "root - 100µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol\nroot > child - 50µs\n    lines:multiple\n          lines", result)
+
+	result = rootCtx.Report(ReportOptions{Prefix: "* "})
+	//fmt.Println(result)
+	assert.Equal(t, "* root - 100µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol\n* root > child - 50µs\n*     lines:multiple\n*           lines", result)
+
+	result = rootCtx.Report(ReportOptions{Prefix: "* ", Separator: " | ", Compact: true})
+	//fmt.Println(result)
+	assert.Equal(t, "* root - 100µs\n*  |     longer:alice\n*  |            eve\n*  |            bob\n*  |     short:alice\n*  |           bob\n*  |           carol\n*  | child - 50µs\n*  |  |     lines:multiple\n*  |  |           lines", result)
 }

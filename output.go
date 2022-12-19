@@ -44,19 +44,23 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 		if b.Len() > 0 {
 			b.WriteString("\n")
 		}
+
 		reportDuration := l.TotalDuration
 		if options.ExcludeChildren && !l.Async {
 			reportDuration -= l.TotalChildDuration()
 		}
 		b.WriteString(options.Prefix)
 		b.WriteString(path)
+
 		var effectiveName string
 		if l.Async {
 			effectiveName = "[" + l.Name + "]"
 		} else {
 			effectiveName = l.Name
 		}
+
 		b.WriteString(effectiveName)
+
 		b.WriteString(" - ")
 		if l.EntryCount > 0 {
 			if options.DurationFormatter == nil {
@@ -80,11 +84,17 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 				b.WriteString(fmt.Sprintf(" (%s/call)", fmtCallDuration))
 			}
 		}
-		b.WriteString(l.formatDetails(options.Prefix))
+
 		if options.Compact {
 			childPrefix = path + options.Separator
 		} else {
 			childPrefix = path + effectiveName + options.Separator
+		}
+
+		if options.Compact {
+			b.WriteString(l.formatDetails(options.Prefix + childPrefix))
+		} else {
+			b.WriteString(l.formatDetails(options.Prefix))
 		}
 	}
 	var keys []string
