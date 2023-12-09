@@ -223,6 +223,28 @@ func Test_Async(t *testing.T) {
 	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2 (50ms/call)\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
 }
 
+func Test_Async2(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx, rootComplete := StartAsync(ctx, "root")
+
+	child1Ctx, c1Complete := Start(rootCtx, "child 1")
+	c1Complete()
+
+	child1Ctx, c1Complete = Start(rootCtx, "child 1")
+	c1Complete()
+
+	child2Ctx, c2Complete := Start(rootCtx, "child 2")
+	c2Complete()
+
+	rootComplete()
+	rootCtx.TotalDuration = 110 * time.Millisecond
+	child1Ctx.TotalDuration = 100 * time.Millisecond
+	child2Ctx.TotalDuration = 100 * time.Millisecond
+
+	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2 (50ms/call)\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
+}
+
 func Test_ReentrantPanics(t *testing.T) {
 	ctx := context.Background()
 

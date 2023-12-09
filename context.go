@@ -22,6 +22,17 @@ func Start(ctx context.Context, name string) (*Context, Complete) {
 	return c, c.Start()
 }
 
+// StartAsync begins a timing context and relates it to a preceding timing context if it exists.
+// If a previous context does not exist then this starts a new named root timing context.
+// This is similar to Start except that it will mark the context as Async, which means that
+// the child contexts will not be excluded from the parent's time. This is useful for timing
+// contexts that overlap.
+func StartAsync(ctx context.Context, name string) (*Context, Complete) {
+	c := ForName(ctx, name)
+	c.Async = true
+	return c, c.Start()
+}
+
 // Root creates a new unnamed timing context. This is similar to Start except there are no timers
 // started. This is provided to allow for a simpler report if it's desired.
 func Root(ctx context.Context) *Context {
