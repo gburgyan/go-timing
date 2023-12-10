@@ -94,6 +94,7 @@ func (l *Location) Report(options ReportOptions) string {
 // pass in "1000" to report by microseconds, "1000000" for milliseconds, etc.
 //
 //   - separator is a string that is used between levels of the timing tree.
+//   - divisor is the amount to divide the duration by to get the reported time.
 //   - excludeChildren will subtract out of the duration of the children when reporting
 //     the time.
 func (l *Location) ReportMap(separator string, divisor float64, excludeChildren bool) map[string]float64 {
