@@ -116,7 +116,7 @@ func (l *Location) dumpToMap(m map[string]float64, separator, path string, divis
 		childPrefix = path
 	} else {
 		reportDuration := l.TotalDuration
-		if excludeChildren {
+		if excludeChildren && !l.Async {
 			reportDuration -= l.TotalChildDuration()
 		}
 		key := fmt.Sprintf("%s%s", path, l.Name)
