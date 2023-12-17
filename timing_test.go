@@ -95,7 +95,8 @@ func Test_Nesting(t *testing.T) {
 
 	js, err := json.Marshal(rootCtx)
 	assert.NoError(t, err)
-	assert.Equal(t, "{\"name\":\"root\",\"children\":{\"child 1\":{\"name\":\"child 1\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000},\"child 2\":{\"name\":\"child 2\",\"entry-count\":1,\"exit-count\":1,\"total-duration\":100000000}},\"entry-count\":1,\"exit-count\":1,\"total-duration\":210000000}", string(js))
+	expected := `{"name":"root","children":{"child 1":{"name":"child 1","entry-count":1,"exit-count":1,"total-duration":100000000},"child 2":{"name":"child 2","entry-count":1,"exit-count":1,"total-duration":100000000}},"entry-count":1,"exit-count":1,"total-duration":210000000}`
+	assert.Equal(t, expected, string(js))
 }
 
 func Test_ContextBehavior(t *testing.T) {
@@ -118,7 +119,9 @@ func Test_ContextBehavior(t *testing.T) {
 	assert.Equal(t, o1, child2Ctx.Value(1))
 	assert.Equal(t, o2, child2Ctx.Value(2))
 
-	assert.Equal(t, "root - 0s entries: 1 exits: 0\nroot > child 1 - 0s entries: 1 exits: 0", rootCtx.String())
+	expected := `root - 0s entries: 1 exits: 0
+root > child 1 - 0s entries: 1 exits: 0`
+	assert.Equal(t, expected, rootCtx.String())
 }
 
 func Test_StartPanics(t *testing.T) {
@@ -172,11 +175,20 @@ func Test_MultiStart(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms calls: 2 (50ms/call)\nroot > child 2 - 100ms", rootCtx.String())
+	expected := `root - 200ms
+root > child 1 - 100ms calls: 2 (50ms/call)
+root > child 2 - 100ms`
+
+	assert.Equal(t, expected, rootCtx.String())
 	custFmt := func(d time.Duration) string {
 		return strconv.Itoa(int(d.Milliseconds()))
 	}
-	assert.Equal(t, "root - 200\nroot > child 1 - 100 calls: 2 (50/call)\nroot > child 2 - 100", rootCtx.Report(ReportOptions{DurationFormatter: custFmt}))
+
+	expected = `root - 200
+root > child 1 - 100 calls: 2 (50/call)
+root > child 2 - 100`
+
+	assert.Equal(t, expected, rootCtx.Report(ReportOptions{DurationFormatter: custFmt}))
 }
 
 func Test_MultiRoot(t *testing.T) {
@@ -196,7 +208,10 @@ func Test_MultiRoot(t *testing.T) {
 	rootCtx.TotalDuration = 200 * time.Millisecond
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "root - 200ms\nroot > child 1 - 100ms", rootCtx.String())
+	expected := `root - 200ms
+root > child 1 - 100ms`
+
+	assert.Equal(t, expected, rootCtx.String())
 	assert.Equal(t, "goroutine - 100ms", root2Ctx.String())
 }
 
@@ -220,7 +235,10 @@ func Test_Async(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2 (50ms/call)\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
+	expected := `[root] - 110ms
+[root] > child 1 - 100ms calls: 2 (50ms/call)
+[root] > child 2 - 100ms`
+	assert.Equal(t, expected, rootCtx.Report(ReportOptions{ExcludeChildren: true}))
 }
 
 func Test_Async2(t *testing.T) {
@@ -242,7 +260,10 @@ func Test_Async2(t *testing.T) {
 	child1Ctx.TotalDuration = 100 * time.Millisecond
 	child2Ctx.TotalDuration = 100 * time.Millisecond
 
-	assert.Equal(t, "[root] - 110ms\n[root] > child 1 - 100ms calls: 2 (50ms/call)\n[root] > child 2 - 100ms", rootCtx.Report(ReportOptions{ExcludeChildren: true}))
+	expected := `[root] - 110ms
+[root] > child 1 - 100ms calls: 2 (50ms/call)
+[root] > child 2 - 100ms`
+	assert.Equal(t, expected, rootCtx.Report(ReportOptions{ExcludeChildren: true}))
 }
 
 func Test_ReentrantPanics(t *testing.T) {
@@ -268,8 +289,8 @@ func Test_DetailsPlain(t *testing.T) {
 	rootComplete()
 
 	rootCtx.TotalDuration = time.Microsecond
-	rootCtx.Details["string"] = "foo"
-	rootCtx.Details["int"] = 42
+	rootCtx.AddDetails("string", "foo")
+	rootCtx.AddDetails("int", 42)
 
 	assert.Equal(t, "root - 1µs (int:42, string:foo)", rootCtx.String())
 }
@@ -283,21 +304,51 @@ func Test_DetailsNewlines(t *testing.T) {
 	rootComplete()
 
 	rootCtx.TotalDuration = 100 * time.Microsecond
-	rootCtx.Details["short"] = "alice\nbob\ncarol\n"
-	rootCtx.Details["longer"] = "alice\neve\nbob"
+	rootCtx.AddDetails("short", "alice\nbob\ncarol\n")
+	rootCtx.AddDetails("longer", "alice\neve\nbob")
 
 	childCtx.TotalDuration = 50 * time.Microsecond
-	childCtx.Details["lines"] = "multiple\nlines"
+	childCtx.AddDetails("lines", "multiple\nlines")
 
 	result := rootCtx.String()
 	//fmt.Println(result)
-	assert.Equal(t, "root - 100µs\n    longer:alice\n           eve\n           bob\n    short:alice\n          bob\n          carol\nroot > child - 50µs\n    lines:multiple\n          lines", result)
+	expected := `root - 100µs
+    longer:alice
+           eve
+           bob
+    short:alice
+          bob
+          carol
+root > child - 50µs
+    lines:multiple
+          lines`
+	assert.Equal(t, expected, result)
 
 	result = rootCtx.Report(ReportOptions{Prefix: "* "})
 	//fmt.Println(result)
-	assert.Equal(t, "* root - 100µs\n*     longer:alice\n*            eve\n*            bob\n*     short:alice\n*           bob\n*           carol\n* root > child - 50µs\n*     lines:multiple\n*           lines", result)
+	expected = `* root - 100µs
+*     longer:alice
+*            eve
+*            bob
+*     short:alice
+*           bob
+*           carol
+* root > child - 50µs
+*     lines:multiple
+*           lines`
+	assert.Equal(t, expected, result)
 
 	result = rootCtx.Report(ReportOptions{Prefix: "* ", Separator: " | ", Compact: true})
 	//fmt.Println(result)
+	expected = `* root - 100µs
+*  |     longer:alice
+*  |            eve
+*  |            bob
+*  |     short:alice
+*  |           bob
+*  |           carol
+*  | child - 50µs
+*  |  |     lines:multiple
+*  |  |           lines`
 	assert.Equal(t, "* root - 100µs\n*  |     longer:alice\n*  |            eve\n*  |            bob\n*  |     short:alice\n*  |           bob\n*  |           carol\n*  | child - 50µs\n*  |  |     lines:multiple\n*  |  |           lines", result)
 }

@@ -131,7 +131,7 @@ func (l *Location) dumpToMap(m map[string]float64, separator, path string, divis
 }
 
 func (l *Location) formatDetails(prefix string) string {
-	if len(l.Details) == 0 {
+	if l.Details == nil || len(l.Details) == 0 {
 		return ""
 	}
 	var keys []string

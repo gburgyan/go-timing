@@ -58,6 +58,16 @@ func (l *Location) Start() Complete {
 	}
 }
 
+func (l *Location) AddDetails(key string, value anything) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.Details == nil {
+		l.Details = map[string]anything{}
+	}
+	l.Details[key] = value
+}
+
 // String returns a multi-line report of what time was spent and where it was spent.
 func (l *Location) String() string {
 	b := strings.Builder{}
@@ -120,8 +130,7 @@ func (l *Location) getChild(ctx context.Context, name string) *Context {
 		}
 	} else {
 		cl := &Location{
-			Name:    name,
-			Details: map[string]anything{},
+			Name: name,
 		}
 		cc := &Context{
 			prevCtx:  ctx,

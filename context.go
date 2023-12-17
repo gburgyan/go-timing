@@ -41,7 +41,7 @@ func Root(ctx context.Context) *Context {
 	}
 	c := &Context{
 		prevCtx:  ctx,
-		Location: &Location{Details: map[string]anything{}},
+		Location: &Location{},
 	}
 	return c
 }
@@ -56,8 +56,7 @@ func StartRoot(ctx context.Context, name string) (*Context, Complete) {
 	c := &Context{
 		prevCtx: ctx,
 		Location: &Location{
-			Name:    name,
-			Details: map[string]anything{},
+			Name: name,
 		},
 	}
 	return c, c.Start()
@@ -78,8 +77,7 @@ func ForName(ctx context.Context, name string) *Context {
 		c := &Context{
 			prevCtx: ctx,
 			Location: &Location{
-				Name:    name,
-				Details: map[string]anything{},
+				Name: name,
 			},
 		}
 		return c
