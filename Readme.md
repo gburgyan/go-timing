@@ -59,8 +59,8 @@ func someFunction(ctx context.Context) {
     tCtx, complete := timing.Start(ctx, "someFunction")
     defer complete()
     // Do work
-    tCtx.Details["items"] = 42
-    tCtx.Details["retries"] = 1
+    tCtx.AddDetails("items", 42)
+    tCtx.AddDetails("retries", 1)
 }
 
 ```
