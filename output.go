@@ -41,17 +41,6 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 	if l.Name == "" {
 		childPrefix = path
 	} else {
-		if b.Len() > 0 {
-			b.WriteString("\n")
-		}
-
-		reportDuration := l.TotalDuration
-		if options.ExcludeChildren && !l.Async {
-			reportDuration -= l.TotalChildDuration()
-		}
-		b.WriteString(options.Prefix)
-		b.WriteString(path)
-
 		var effectiveName string
 		if l.Async {
 			effectiveName = "[" + l.Name + "]"
@@ -59,29 +48,42 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 			effectiveName = l.Name
 		}
 
-		b.WriteString(effectiveName)
+		if l.EntryCount > 0 || len(l.Children) == 0 {
+			if b.Len() > 0 {
+				b.WriteString("\n")
+			}
 
-		b.WriteString(" - ")
-		if l.EntryCount > 0 {
-			if options.DurationFormatter == nil {
-				b.WriteString(reportDuration.String())
-			} else {
-				b.WriteString(options.DurationFormatter(reportDuration))
+			reportDuration := l.TotalDuration
+			if options.ExcludeChildren && !l.Async {
+				reportDuration -= l.TotalChildDuration()
 			}
-			if l.EntryCount != l.ExitCount {
-				b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
-			} else if l.ExitCount > 1 {
-				b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
-			}
-			if l.ExitCount > 1 {
-				perCallDuration := time.Duration(float64(reportDuration) / float64(l.ExitCount))
-				var fmtCallDuration string
+			b.WriteString(options.Prefix)
+			b.WriteString(path)
+
+			b.WriteString(effectiveName)
+
+			b.WriteString(" - ")
+			if l.EntryCount > 0 {
 				if options.DurationFormatter == nil {
-					fmtCallDuration = perCallDuration.String()
+					b.WriteString(reportDuration.String())
 				} else {
-					fmtCallDuration = options.DurationFormatter(perCallDuration)
+					b.WriteString(options.DurationFormatter(reportDuration))
 				}
-				b.WriteString(fmt.Sprintf(" (%s/call)", fmtCallDuration))
+				if l.EntryCount != l.ExitCount {
+					b.WriteString(fmt.Sprintf(" entries: %d exits: %d", l.EntryCount, l.ExitCount))
+				} else if l.ExitCount > 1 {
+					b.WriteString(fmt.Sprintf(" calls: %d", l.EntryCount))
+				}
+				if l.ExitCount > 1 {
+					perCallDuration := time.Duration(float64(reportDuration) / float64(l.ExitCount))
+					var fmtCallDuration string
+					if options.DurationFormatter == nil {
+						fmtCallDuration = perCallDuration.String()
+					} else {
+						fmtCallDuration = options.DurationFormatter(perCallDuration)
+					}
+					b.WriteString(fmt.Sprintf(" (%s/call)", fmtCallDuration))
+				}
 			}
 		}
 

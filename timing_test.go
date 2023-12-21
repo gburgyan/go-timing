@@ -352,3 +352,27 @@ root > child - 50µs
 *  |  |           lines`
 	assert.Equal(t, "* root - 100µs\n*  |     longer:alice\n*  |            eve\n*  |            bob\n*  |     short:alice\n*  |           bob\n*  |           carol\n*  | child - 50µs\n*  |  |     lines:multiple\n*  |  |           lines", result)
 }
+
+func Test_EmptyLevel(t *testing.T) {
+	ctx := context.Background()
+
+	rootCtx, rootComplete := Start(ctx, "root")
+
+	// Add an empty level
+	asyncPlaceholder := ForName(rootCtx, "Async")
+	asyncPlaceholder.Async = true
+
+	asyncTask, grandchildComplete := Start(asyncPlaceholder, "Task")
+	grandchildComplete()
+
+	rootComplete()
+
+	rootCtx.TotalDuration = 100 * time.Microsecond
+	asyncTask.TotalDuration = 50 * time.Microsecond
+
+	result := rootCtx.String()
+	fmt.Println(result)
+	expected := `root - 100µs
+root > [Async] > Task - 50µs`
+	assert.Equal(t, expected, result)
+}

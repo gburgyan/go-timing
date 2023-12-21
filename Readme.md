@@ -251,3 +251,25 @@ rootComplete()
 ```
 
 The children will get reported fine. Be aware, however, that if you report on this with the exclude children flag, this can lead to a time, potentially negative, being reported on. The way to address this is to add `root.Async = true` after the timing context is started. This will prevent the children from being subtracted out since they are, essentially, running out of sync with each other.
+
+## Placeholder Nodes (Async primarily)
+
+When starting a series of asynchronous tasks, it is often helpful to have those be grouped together. This can be achieved by the following:
+
+```go
+rootCtx, rootComplete := Start(ctx, "root")
+
+// Add an empty level to hold the async tasks
+asyncPlaceholder := ForName(rootCtx, "Async")
+asyncPlaceholder.Async = true
+
+asyncTask, grandchildComplete := Start(asyncPlaceholder, "Task")
+grandchildComplete()
+
+rootComplete()
+```
+
+The call to `ForName` creates a timing context that holds all of the async tasks that
+are made under it. Since it doesn't start an activity, it doesn't have any specific
+time associated with it. When outputting the results, if such a node is encountered (and
+it has children), then the output of this node will be skipped.
