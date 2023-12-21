@@ -34,6 +34,10 @@ type Location struct {
 	// Details allow you to add extra information about the timing location, so you can note the number
 	// of items processed or the number of attempts to access a resource.
 	Details map[string]anything `json:"details,omitempty"`
+
+	// CallOrder is a list of the order that the timing contexts were started. This is useful for
+	// presenting the timing information in the order that it was executed.
+	CallOrder []string `json:"-"`
 }
 
 type anything interface{}
@@ -137,6 +141,7 @@ func (l *Location) getChild(ctx context.Context, name string) *Context {
 			Location: cl,
 		}
 		l.Children[name] = cl
+		l.CallOrder = append(l.CallOrder, name)
 		return cc
 	}
 }

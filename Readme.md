@@ -102,6 +102,10 @@ ProcessRequest > otherFunction - 185ms
 
 This shows that outside of the calls to the children, `ProcessRequest` consumed 15ms on its own.
 
+### Results ordering
+
+The results are generated in the order that they were encountered during the course of execution. If the same child is called multiple times in different places, the ordering of the first time it was called is used.
+
 ### Duration formatting
 
 The default Golang `duration` formatting is great for human readability, but it's not as good for machine processing since it involves text parsing of the units. If you need to get something other than the provided functionality, you can pass in a function that takes a duration and returns a string. This allows you to do any transformations, rounding, scaling or anything else.
@@ -152,7 +156,7 @@ Details are not emitted for the `map` representation.
 
 ## JSON
 
-The timing context objects are decorated with JSON tags to allow serialization to JSON.
+The timing context objects are decorated with JSON tags to allow serialization to JSON. The `CallOrder` is not serialized.
 
 ## Custom reporting
 

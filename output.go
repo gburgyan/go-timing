@@ -99,12 +99,7 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 			b.WriteString(l.formatDetails(options.Prefix))
 		}
 	}
-	var keys []string
-	for k := range l.Children {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+	for _, k := range l.CallOrder {
 		l := l.Children[k]
 		l.dumpToBuilder(b, childPrefix, options)
 	}

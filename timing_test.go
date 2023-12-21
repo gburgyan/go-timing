@@ -365,14 +365,19 @@ func Test_EmptyLevel(t *testing.T) {
 	asyncTask, grandchildComplete := Start(asyncPlaceholder, "Task")
 	grandchildComplete()
 
+	regularOp, regularComplete := Start(rootCtx, "Regular")
+	regularComplete()
+
 	rootComplete()
 
 	rootCtx.TotalDuration = 100 * time.Microsecond
 	asyncTask.TotalDuration = 50 * time.Microsecond
+	regularOp.TotalDuration = 50 * time.Microsecond
 
 	result := rootCtx.String()
 	fmt.Println(result)
 	expected := `root - 100µs
-root > [Async] > Task - 50µs`
+root > [Async] > Task - 50µs
+root > Regular - 50µs`
 	assert.Equal(t, expected, result)
 }
