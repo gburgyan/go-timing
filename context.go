@@ -11,9 +11,9 @@ type Context struct {
 	prevCtx context.Context
 }
 
-type contextTiming int
+type contextTimingType int
 
-const contextTimingKey contextTiming = 0
+const ContextTimingKey contextTimingType = 0
 
 // Start begins a timing context and relates it to a preceding timing context if it exists.
 // If a previous context does not exist then this starts a new named root timing context.
@@ -88,7 +88,7 @@ func ForName(ctx context.Context, name string) *Context {
 
 // findParentTiming is a global that finds most recent timing context on the context stack.
 func findParentTiming(ctx context.Context) *Context {
-	value := ctx.Value(contextTimingKey)
+	value := ctx.Value(ContextTimingKey)
 	if value == nil {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (c *Context) Err() error {
 }
 
 func (c *Context) Value(key interface{}) interface{} {
-	if key == contextTimingKey {
+	if key == ContextTimingKey {
 		return c
 	}
 	return c.prevCtx.Value(key)

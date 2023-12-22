@@ -141,7 +141,7 @@ func Test_StartPanics(t *testing.T) {
 
 func Test_ParentTimingPanic(t *testing.T) {
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, contextTimingKey, 1)
+	ctx = context.WithValue(ctx, ContextTimingKey, 1)
 	assert.Panics(t, func() {
 		findParentTiming(ctx)
 	})
