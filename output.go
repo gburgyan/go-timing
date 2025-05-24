@@ -99,9 +99,21 @@ func (l *Location) dumpToBuilder(b *strings.Builder, path string, options *Repor
 			b.WriteString(l.formatDetails(options.Prefix))
 		}
 	}
-	for _, k := range l.CallOrder {
-		l := l.Children[k]
-		l.dumpToBuilder(b, childPrefix, options)
+
+	// Create a snapshot of children to iterate safely
+	l.mu.Lock()
+	callOrderCopy := make([]string, len(l.CallOrder))
+	copy(callOrderCopy, l.CallOrder)
+	childrenCopy := make(map[string]*Location)
+	for k, v := range l.Children {
+		childrenCopy[k] = v
+	}
+	l.mu.Unlock()
+
+	for _, k := range callOrderCopy {
+		if child, ok := childrenCopy[k]; ok {
+			child.dumpToBuilder(b, childPrefix, options)
+		}
 	}
 }
 
@@ -122,24 +134,43 @@ func (l *Location) dumpToMap(m map[string]float64, separator, path string, divis
 		}
 		childPrefix = path + l.Name + separator
 	}
-	for _, c := range l.Children {
+
+	// Create a snapshot of children to iterate safely
+	l.mu.Lock()
+	childrenCopy := make(map[string]*Location)
+	for k, v := range l.Children {
+		childrenCopy[k] = v
+	}
+	l.mu.Unlock()
+
+	for _, c := range childrenCopy {
 		c.dumpToMap(m, separator, childPrefix, divisor, excludeChildren)
 	}
 }
 
 func (l *Location) formatDetails(prefix string) string {
+	l.mu.Lock()
 	if l.Details == nil || len(l.Details) == 0 {
+		l.mu.Unlock()
 		return ""
 	}
+
+	// Create a copy of the details map
+	detailsCopy := make(map[string]anything)
+	for k, v := range l.Details {
+		detailsCopy[k] = v
+	}
+	l.mu.Unlock()
+
 	var keys []string
-	for k := range l.Details {
+	for k := range detailsCopy {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	anyNewlines := false
 	formattedDetails := map[string]string{}
 	for _, k := range keys {
-		o := l.Details[k]
+		o := detailsCopy[k]
 		s := fmt.Sprintf("%+v", o)
 		if strings.Contains(s, "\n") {
 			anyNewlines = true

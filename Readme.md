@@ -162,6 +162,21 @@ The timing context objects are decorated with JSON tags to allow serialization t
 
 All the needed fields are public and easily navigable so if there is a need to output the timing in any other way, this should be easy to do.
 
+# Error Handling Philosophy
+
+The `go-timing` library uses panics for programming errors rather than returning errors. This is an intentional design choice:
+
+* **Nil contexts** and **empty names** cause panics because these represent bugs in the calling code
+* **Calling Complete() multiple times** panics because this indicates incorrect usage
+* These are **not** runtime errors that need handling - they should be fixed during development
+
+**Do not use recover() to handle these panics.** Instead, ensure your code:
+* Always passes non-nil contexts
+* Always provides non-empty names for timing contexts  
+* Calls each Complete function exactly once (use `defer` for safety)
+
+This approach results in cleaner production code without error handling boilerplate for conditions that should never occur in correct code.
+
 # Thread Safety
 
 The `go-timing` module is defined to be completely thread safe while the timings are being logged. There should be no case where a timing is lost or anything behaves incorrectly.

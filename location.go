@@ -43,25 +43,42 @@ type Location struct {
 type anything interface{}
 
 // Complete is a function to call when a concurrent execution is completed.
+// Each Complete function must be called exactly once. Calling it multiple times
+// will panic, indicating a programming error in the caller's code.
+//
+// The panic is intentional - it identifies bugs during development rather than
+// requiring error handling in production code. Ensure your code calls Complete
+// exactly once, typically using defer:
+//
+//	tCtx, complete := timing.Start(ctx, "operation")
+//	defer complete()
 type Complete func()
 
 // Start begins a timed event for this location. It returns a Complete function that is
 // to be called when whatever it is that is being timed is completed.
+//
+// The returned Complete function will panic if called more than once. This panic is
+// intentional and indicates a programming error that should be fixed, not a runtime
+// error that needs handling.
 func (l *Location) Start() Complete {
-	ended := false
+	var ended int32
 	atomic.AddUint32(&l.EntryCount, 1)
 	startTime := time.Now()
 	return func() {
 		d := time.Since(startTime)
-		if ended {
+		if !atomic.CompareAndSwapInt32(&ended, 0, 1) {
 			panic("timing already completed")
 		}
-		ended = true
 		atomic.AddUint32(&l.ExitCount, 1)
 		atomic.AddInt64((*int64)(&l.TotalDuration), int64(d))
 	}
 }
 
+// AddDetails adds a key-value pair to the timing location's details map.
+// These details are included in reports and can provide additional context
+// about the operation being timed (e.g., number of items processed, retry count).
+//
+// This method is thread-safe and can be called concurrently.
 func (l *Location) AddDetails(key string, value anything) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -81,6 +98,9 @@ func (l *Location) String() string {
 
 // TotalChildDuration is a helper that computes the total time that the child timing contexts have spent.
 func (l *Location) TotalChildDuration() time.Duration {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	d := time.Duration(0)
 	for _, child := range l.Children {
 		d += child.TotalDuration
